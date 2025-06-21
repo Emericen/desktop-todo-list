@@ -17,7 +17,7 @@ This template helps you prototype desktop ideas rapidly. It comes with a pre-wir
 
 ```bash
 # clone & install
-git clone <repo-url>
+git clone https://github.com/Emericen/electron-shadcn-template.git
 cd electron-shadcn-template
 npm install
 
