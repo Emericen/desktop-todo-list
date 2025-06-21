@@ -1,8 +1,8 @@
 # electron-shadcn-template
 
-![Counter screenshot](resources/screenshot.png)
-
 This template helps you prototype desktop ideas rapidly. It comes with a pre-wired Electron runtime, a React front-end, integrated state management, and a system-tray workflow—so you can start building features instead of boilerplate.
+
+![Counter screenshot](resources/screenshot.png)
 
 ## ✨ Features
 
