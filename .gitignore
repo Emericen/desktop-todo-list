@@ -1,0 +1,57 @@
+# Build outputs
+build/
+dist/
+out/
+release/
+
+# Dependencies
+node_modules/
+
+# Electron artifacts
+*.asar
+*.asar.unpacked
+*.unpacked
+
+# Installers / packages
+*.exe
+*.dmg
+*.AppImage
+*.app
+*.deb
+*.rpm
+*.pkg
+*.snap
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log*
+
+# Coverage
+coverage/
+
+# Environment variables
+.env
+.env.*
+
+# IDE & editor folders
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.Spotlight-V100
+.Trashes
+
+# Misc
+.eslintcache
+*.tsbuildinfo
+*.swp
