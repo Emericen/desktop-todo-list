@@ -55,3 +55,21 @@ ehthumbs.db
 .eslintcache
 *.tsbuildinfo
 *.swp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+*.egg-info/
+dist/
+build/

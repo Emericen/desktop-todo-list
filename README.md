@@ -1,68 +1,73 @@
-# electron-shadcn-template
+# electron-template
 
-This template helps you prototype desktop ideas rapidly. It comes with a pre-wired Electron runtime, a React front-end, integrated state management, and a system-tray workflow—so you can start building features instead of boilerplate.
+An Electron application with React and AI agent integration.
 
-![Counter screenshot](resources/screenshot.png)
+## Quick Start
 
-## ✨ Features
-
-- ⚡️ **Vite** – instant HMR & lightning-fast builds
-- 🖥 **Electron 35** – cross-platform desktop runtime
-- 💅 **shadcn/ui + TailwindCSS** – beautiful components out of the box
-- 📦 **electron-builder** – one-command packaging for macOS, Windows & Linux
-- 🗄 **Zustand** – minimal, hooks-based global store (`src/renderer/store`)
-- 🍳 **System Tray** – minimise, restore and quit directly from the tray icon
-
-## 🚀 Getting Started
+### Install
 
 ```bash
-# clone & install
-git clone https://github.com/Emericen/electron-shadcn-template.git
-cd electron-shadcn-template
-npm install
-
-# run in development mode with live reload
-npm run dev
+$ npm install
 ```
 
-The counter window opens automatically; if you close it, the app stays alive in the tray. Re-open it or quit from the tray menu.
-
-Need more shadcn/UI components? Add it in seconds:
+### Development
 
 ```bash
-npx shadcn@latest add <component-name>
+$ npm run dev
 ```
 
-Browse the full catalog at [ui.shadcn.com](https://ui.shadcn.com/).
+### Testing
 
-## 📜 Scripts
+```bash
+$ npm run test
+```
 
-| Command                       | Description                                   |
-| ----------------------------- | --------------------------------------------- |
-| `npm run dev`                 | Start the app in development mode             |
-| `npm run build`               | Production build (all processes)              |
-| `npm run build:mac`           | Package the app for macOS                     |
-| `npm run build:win`           | Package the app for Windows                   |
-| `npm run build:linux`         | Package the app for Linux                     |
-| `npm run build:unpack`        | Build and create an unpacked directory        |
+### Build
 
-## 📂 Project Structure
+```bash
+# For windows
+$ npm run build:win
 
-**Folder overview**
+# For macOS
+$ npm run build:mac
 
-- `src/main/` – Electron **main process** (backend / business logic, tray, updates, IPC)
-- `src/preload/` – Secure **context-bridge** exposing whitelisted APIs to the renderer
-- `src/renderer/` – **React front-end** (TailwindCSS, shadcn/ui, Zustand live only here)
-  - `components/` – Re-usable UI components
-  - `store/` – Client-side Zustand stores
-  - `windows/` – Individual windows / pages (e.g. Counter)
+# For Linux
+$ npm run build:linux
+```
 
-## 🛠 Recommended IDE Setup
+## Mock Mode for Development
 
-- VS Code
-  - Tailwind CSS IntelliSense (optional)
-  - Icons/Theme of your choice
+For faster development and testing without AI dependencies, use mock mode:
 
-## 📄 License
+```bash
+# In .env file
+MOCK_MODE=true
+```
 
-[MIT](LICENSE)
+Mock mode allows you to:
+- **Focus on UX** - Perfect the entire user experience without AI complexity
+- **Develop offline** - Work without internet or GPU server access  
+- **Test deterministically** - Same responses every time for reliable testing
+- **Iterate faster** - No waiting for AI responses
+
+### Creating Mock Data
+
+1. **Record coordinates** from your desktop:
+   ```bash
+   cd experiments
+   python s2_record_click.py
+   ```
+
+2. **Add to mock responses** in `tests/data/mockResponses.json`:
+   ```json
+   {
+     "responses": [
+       {
+         "role": "assistant", 
+         "content": "Thought: I'll click on the file.\nAction: click(start_box='<|box_start|>(855, 618)<|box_end|>')"
+       }
+     ]
+   }
+   ```
+
+Mock responses simulate the full AI behavior including screenshots, action planning, confirmations, and task completion.
