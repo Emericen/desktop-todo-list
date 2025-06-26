@@ -73,3 +73,6 @@ pip-delete-this-directory.txt
 *.egg-info/
 dist/
 build/
+
+# Eddy's test files
+experiments/

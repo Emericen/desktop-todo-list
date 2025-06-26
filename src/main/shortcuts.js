@@ -1,34 +1,30 @@
 import { globalShortcut } from "electron";
 
-// ========== SHORTCUT STATE ==========
-let registeredShortcut = null;
-let toggleCallback = null;
+// ===== Shortcut registry =====
+const registered = new Map(); // accelerator → callback
 
-export function initShortcuts(callback) {
-  toggleCallback = callback;
-}
+/**
+ * Register a set of global shortcuts.
+ * @param {Record<string, Function>} shortcutMap Accelerators mapped to handler callbacks.
+ */
+export function registerShortcuts(shortcutMap = {}) {
+  // Clear existing first
+  unregisterAllShortcuts();
 
-export function registerToggleShortcut(accelerator) {
-  // Unregister current shortcut if any
-  if (registeredShortcut) {
-    globalShortcut.unregister(registeredShortcut);
-    registeredShortcut = null;
-  }
-
-  // Register new shortcut if provided
-  if (accelerator && globalShortcut.register(accelerator, () => {
-    if (toggleCallback) toggleCallback();
-  })) {
-    registeredShortcut = accelerator;
-    console.log(`Registered global shortcut: ${accelerator}`);
-  }
+  Object.entries(shortcutMap).forEach(([accelerator, handler]) => {
+    if (accelerator && typeof handler === "function") {
+      const ok = globalShortcut.register(accelerator, handler);
+      if (ok) {
+        registered.set(accelerator, handler);
+        console.log(`[Shortcut] Registered ${accelerator}`);
+      } else {
+        console.warn(`[Shortcut] Failed to register ${accelerator}`);
+      }
+    }
+  });
 }
 
 export function unregisterAllShortcuts() {
   globalShortcut.unregisterAll();
-  registeredShortcut = null;
+  registered.clear();
 }
-
-export function getCurrentShortcut() {
-  return registeredShortcut;
-} 

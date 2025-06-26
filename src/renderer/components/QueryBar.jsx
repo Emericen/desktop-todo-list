@@ -10,7 +10,6 @@ export default function QueryBar() {
   const awaitingUserResponse = useStore((s) => s.awaitingUserResponse);
   const submitQuery = useStore((s) => s.submitQuery);
   const clearMessages = useStore((s) => s.clearMessages);
-  const settings = useStore((s) => s.settings);
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef(null);
