@@ -5,7 +5,7 @@ import { is } from "@electron-toolkit/utils";
 // ========== CHAT WINDOW STATE ==========
 let chatWindow = null;
 let previouslyFocusedWindow = null;
-let requestScreenshotCallback = null;
+let takeScreenshotFn = null;
 
 // Reusable white square icon (16x16) for Linux where BrowserWindow expects an icon
 const WHITE_ICON_SIZE = 16;
@@ -17,8 +17,8 @@ const whiteIcon = nativeImage.createFromBuffer(whiteBuf, {
 });
 
 export function createChatWindow(callbacks = {}) {
-  // Store the screenshot request callback
-  requestScreenshotCallback = callbacks.requestScreenshot;
+  // Store the takeScreenshot helper (returns {image: base64})
+  takeScreenshotFn = callbacks.takeScreenshot;
   // Get screen dimensions
   const { width: screenWidth, height: screenHeight } =
     screen.getPrimaryDisplay().workAreaSize;
@@ -124,15 +124,28 @@ export function toggleChatWindow() {
     if (chatWindow.isVisible()) {
       hideChatWindow();
     } else {
-      // Request screenshot from backend before showing
-      if (requestScreenshotCallback) {
-        const success = requestScreenshotCallback();
-        if (!success) {
-          // No backend connection, show window immediately
-          showChatWindow(true);
-        }
+      if (takeScreenshotFn) {
+        takeScreenshotFn()
+          .then((res) => {
+            if (res && res.image) {
+              const payload = {
+                type: "message",
+                data: {
+                  role: "agent",
+                  type: "image",
+                  content: `data:image/jpeg;base64,${res.image}`,
+                },
+              };
+              chatWindow.webContents.send("backend-push", payload);
+            }
+          })
+          .catch(() => {
+            /* ignore errors */
+          })
+          .finally(() => {
+            showChatWindow(true);
+          });
       } else {
-        // No callback configured, show window immediately
         showChatWindow(true);
       }
     }

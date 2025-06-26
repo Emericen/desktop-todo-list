@@ -1,27 +1,24 @@
-import { app, shell, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import dotenv from "dotenv";
 
-// Import our modular components
 import {
   createChatWindow,
   showChatWindow,
   toggleChatWindow,
-} from "./chatWindow.js";
-import { createSettingsWindow } from "./settingsWindow.js";
-import { createSystemTray, destroyTray } from "./tray.js";
+} from "./windows/chat.js";
+import { createSettingsWindow } from "./windows/settings.js";
+import { createSystemTray, destroyTray } from "./windows/tray.js";
 import {
-  initBackendClient,
-  startBackend,
-  stopBackend,
-  sendToBackend,
-  requestScreenshot,
-} from "./backendClient.js";
-import {
-  initShortcuts,
-  registerToggleShortcut,
-  unregisterAllShortcuts,
-} from "./shortcuts.js";
+  start as startOSClient,
+  stop as stopOSClient,
+  takeScreenshot,
+  moveMouse,
+  clickMouse,
+  typeText,
+  echo,
+} from "./clients/os.js";
+import { registerShortcuts, unregisterAllShortcuts } from "./shortcuts.js";
 
 // Load environment variables
 dotenv.config();
@@ -36,74 +33,70 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId("com.electron");
 
-  // Ensure Python process dies with the app
-  app.on("before-quit", () => {
-    stopBackend();
+  app.on("activate", function () {
+    // On macOS it's common to re-create a window in the app when the
+    // dock icon is clicked and there are no other windows open.
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createChatWindow({ takeScreenshot });
+    }
   });
 
-  // Initialize modules
-  initShortcuts(toggleChatWindow);
+  // Register global shortcuts (can later be loaded from settings)
+  registerShortcuts({ "Alt+P": toggleChatWindow });
 
-  initBackendClient({
-    onShortcutUpdate: (shortcut) => {
-      registerToggleShortcut(shortcut);
-    },
-    onScreenshotReceived: () => {
-      showChatWindow(true);
-    },
-  });
+  // Start OS helper service (Flask)
+  startOSClient();
 
   // Default open or close DevTools by F12 in development
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  // Start backend (Python process + WebSocket client)
-  startBackend();
+  // ========= IPC HANDLERS =========
+  ipcMain.handle("query", async (_event, payload) => {
+    console.log("query", payload);
+    // TODO: attach JWT and forward to your Vercel backend.
+    // For V1 this returns a dummy response.
+    return {
+      type: "text",
+      data: "ok looks like i have the right text selected",
+    };
+  });
 
-  // ========= IPC proxy =========
-  ipcMain.handle("backend-proxy", (_event, payload) => {
-    // Handle UI-specific actions
-    if (payload.action === "toggle_window") {
-      toggleChatWindow();
-      return;
+  ipcMain.handle("action", async (_event, payload) => {
+    console.log("action", payload);
+    switch (payload.type) {
+      case "move_mouse":
+        return moveMouse(payload.x, payload.y);
+      case "click_mouse":
+        return clickMouse();
+      case "type_text":
+        return typeText(payload.text);
+      case "screenshot":
+        // NOTE: This returns base64 encoded image string in json response.
+        // If screenshot become frequent and images become large,
+        // save the image to a temp file and return the path instead.
+        return takeScreenshot();
+      default:
+        return { error: "unknown action" };
     }
-
-    // Forward everything else to Python
-    sendToBackend(payload);
-    return null;
   });
 
-  // Create windows and tray
-  createChatWindow({
-    requestScreenshot: () => requestScreenshot(),
-  });
+  // ========= WINDOWS AND TRAY =========
+  createChatWindow({ takeScreenshot });
   createSystemTray({
     onShowChat: () => showChatWindow(true),
     onOpenSettings: () => createSettingsWindow(),
     onQuit: () => app.quit(),
   });
 
-  app.on("activate", function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createChatWindow({
-        requestScreenshot: () => requestScreenshot(),
-      });
-    }
+  // ========= APP CLEANUP =========
+  app.on("before-quit", () => {
+    stopOSClient();
   });
-});
 
-// ========== APP CLEANUP ==========
-app.on("will-quit", () => {
-  unregisterAllShortcuts();
-  destroyTray();
-});
-
-// Quit when all windows are closed, except on macOS
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  app.on("will-quit", () => {
+    unregisterAllShortcuts();
+    destroyTray();
+  });
 });
