@@ -3,7 +3,7 @@ import { spawn } from "child_process";
 import { is } from "@electron-toolkit/utils";
 
 let pyProcess = null;
-const BASE_URL = "http://127.0.0.1:5000"; // Flask service address
+const BASE_URL = "http://127.0.0.1:8765"; // Flask service address
 
 export function start() {
   if (pyProcess) return; // already running

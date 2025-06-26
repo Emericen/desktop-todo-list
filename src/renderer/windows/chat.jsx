@@ -20,7 +20,7 @@ export default function ChatWindow() {
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    requestAnimationFrame(scrollToBottom);
   }, [messages, scrollToBottom]);
 
   return (
@@ -39,12 +39,12 @@ export default function ChatWindow() {
           <div className="max-w-4xl mx-auto">
             <div className="space-y-8">
               {messages.map((message, index) => {
-                if (message.role === "user") {
-                  return <UserMessage key={index} message={message} />;
-                } else {
-                  if (message.type === "image") {
+                switch (message.type) {
+                  case "user":
+                    return <UserMessage key={index} message={message} />;
+                  case "image":
                     return <ImageMessage key={index} message={message} />;
-                  } else if (message.type === "confirmation") {
+                  case "confirmation":
                     return (
                       <ChoiceMessage
                         key={index}
@@ -52,9 +52,8 @@ export default function ChatWindow() {
                         index={index}
                       />
                     );
-                  } else {
+                  default:
                     return <TextMessage key={index} message={message} />;
-                  }
                 }
               })}
               <div ref={bottomRef} />

@@ -64,13 +64,13 @@ export function createChatWindow(callbacks = {}) {
     chatWindow.webContents.send("focus-query-input");
   });
 
-  // Auto-hide chat when it loses focus (user clicked elsewhere)
-  chatWindow.on("blur", () => {
-    // Only hide if window is currently visible
-    if (chatWindow?.isVisible()) {
-      hideChatWindow();
-    }
-  });
+  // // Auto-hide chat when it loses focus (user clicked elsewhere)
+  // chatWindow.on("blur", () => {
+  //   // Only hide if window is currently visible
+  //   if (chatWindow?.isVisible()) {
+  //     hideChatWindow();
+  //   }
+  // });
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
@@ -129,23 +129,32 @@ export function toggleChatWindow() {
           .then((res) => {
             if (res && res.image) {
               const payload = {
-                type: "message",
-                data: {
-                  role: "agent",
-                  type: "image",
-                  content: `data:image/jpeg;base64,${res.image}`,
-                },
+                type: "image",
+                content: `data:image/jpeg;base64,${res.image}`,
               };
-              chatWindow.webContents.send("backend-push", payload);
+
+              // If this is the very first load we may need to wait until DOM is ready
+              if (chatWindow.webContents.isLoading()) {
+                chatWindow.webContents.once("dom-ready", () => {
+                  chatWindow.webContents.send("backend-push", payload);
+                });
+              } else {
+                chatWindow.webContents.send("backend-push", payload);
+              }
+            } else {
+              console.log("no image in screenshot response");
             }
           })
           .catch(() => {
-            /* ignore errors */
+            console.log("error in screenshot flow");
           })
           .finally(() => {
+            // Ensure window is shown even if screenshot failed
             showChatWindow(true);
+            console.log("screenshot flow completed");
           });
       } else {
+        console.log("no screenshot fn");
         showChatWindow(true);
       }
     }

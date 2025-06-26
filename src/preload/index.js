@@ -8,6 +8,9 @@ const api = {
 
   // Send an OS-level action and await its JSON result
   sendAction: (payload) => ipcRenderer.invoke("action", payload),
+
+  // Listen to push events from main (e.g., screenshot before window shows)
+  onPush: (cb) => ipcRenderer.on("backend-push", (_e, data) => cb(data)),
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

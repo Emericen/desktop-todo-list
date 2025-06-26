@@ -10,13 +10,10 @@ const useStore = create((set, get) => ({
   isTranscribing: false,
   awaitingUserResponse: false,
 
-  addMessage: (message) => {
-    set((state) => ({ messages: [...state.messages, message] }));
-  },
+  addMessage: (message) =>
+    set((state) => ({ messages: [...state.messages, message] })),
 
-  clearMessages: () => {
-    set({ messages: [] });
-  },
+  clearMessages: () => set({ messages: [] }),
 
   setIsTranscribing: (val) => set({ isTranscribing: val }),
 
@@ -27,8 +24,7 @@ const useStore = create((set, get) => ({
     if (!query) return;
 
     get().addMessage({
-      role: "user",
-      type: "text",
+      type: "user",
       content: query,
       timestamp: new Date(),
     });
@@ -37,14 +33,12 @@ const useStore = create((set, get) => ({
       const res = await window.api.sendQuery({ prompt: query });
       const content = res.data || res.message || JSON.stringify(res);
       get().addMessage({
-        role: "agent",
         type: "text",
-        content,
+        content: content,
         timestamp: new Date(),
       });
     } catch (error) {
       get().addMessage({
-        role: "agent",
         type: "text",
         content: `Error: ${error}`,
         timestamp: new Date(),
@@ -52,5 +46,17 @@ const useStore = create((set, get) => ({
     }
   },
 }));
+
+// Attach backend-push listener globally once store is defined
+if (typeof window !== "undefined" && window.api?.onPush) {
+  window.api.onPush((payload) => {
+    console.log("payload", payload);
+    useStore.getState().addMessage({
+      type: payload.type,
+      content: payload.content,
+      timestamp: new Date(),
+    });
+  });
+}
 
 export default useStore;
