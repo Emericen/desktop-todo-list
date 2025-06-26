@@ -64,13 +64,13 @@ export function createChatWindow(callbacks = {}) {
     chatWindow.webContents.send("focus-query-input");
   });
 
-  // // Auto-hide chat when it loses focus (user clicked elsewhere)
-  // chatWindow.on("blur", () => {
-  //   // Only hide if window is currently visible
-  //   if (chatWindow?.isVisible()) {
-  //     hideChatWindow();
-  //   }
-  // });
+  // Auto-hide chat when it loses focus (user clicked elsewhere)
+  chatWindow.on("blur", () => {
+    // Only hide if window is currently visible
+    if (chatWindow?.isVisible()) {
+      hideChatWindow();
+    }
+  });
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
