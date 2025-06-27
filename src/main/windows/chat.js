@@ -92,6 +92,7 @@ export function showChatWindow(shouldFocus = false) {
     }
 
     chatWindow.show();
+    chatWindow.restore(); // Ensure window is unminimized on Windows
     // Notify renderer to focus the query input when window is shown
     chatWindow.webContents.send("focus-query-input");
     if (shouldFocus) {
@@ -102,6 +103,9 @@ export function showChatWindow(shouldFocus = false) {
 
 export function hideChatWindow() {
   if (chatWindow) {
+    if (process.platform === "win32") {
+      chatWindow.minimize(); // Required on Windows to give focus back
+    }
     chatWindow.blur();
     chatWindow.hide();
 
