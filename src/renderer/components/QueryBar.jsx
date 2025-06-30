@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Mic, MicOff, Send, ChevronUp } from "lucide-react";
+import { Mic, MicOff, Send, Plus, Sliders, ChevronDown, ChevronUp } from "lucide-react";
 import useStore from "@/store/useStore";
 
 export default function QueryBar() {
@@ -18,14 +18,10 @@ export default function QueryBar() {
   const clearMessages = useStore((s) => s.clearMessages);
   const selectedModel = useStore((s) => s.selectedModel);
   const setSelectedModel = useStore((s) => s.setSelectedModel);
+  const models = useStore((s) => s.models);
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef(null);
-
-  const models = [
-    { id: "claude-4-sonnet", name: "Claude 4 Sonnet" },
-    { id: "O3", name: "O3" },
-  ];
 
   // Auto-resize textarea
   const adjustTextareaHeight = () => {
@@ -134,7 +130,7 @@ export default function QueryBar() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-7 px-2 text-xs"
+                      className="h-7 px-3 text-xs rounded-full border border-border/50 bg-muted/30"
                     >
                       {models.find((m) => m.id === selectedModel)?.name ||
                         selectedModel}

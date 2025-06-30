@@ -157,7 +157,6 @@ export function toggleChatWindow() {
           .finally(() => {
             // Ensure window is shown even if screenshot failed
             showChatWindow(true);
-            console.log("screenshot flow completed");
           });
       } else {
         console.log("no screenshot fn");
