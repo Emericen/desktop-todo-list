@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Mic, MicOff, Send, Plus, Sliders } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Mic, MicOff, Send, ChevronUp } from "lucide-react";
 import useStore from "@/store/useStore";
 
 export default function QueryBar() {
@@ -10,9 +16,16 @@ export default function QueryBar() {
   const awaitingUserResponse = useStore((s) => s.awaitingUserResponse);
   const submitQuery = useStore((s) => s.submitQuery);
   const clearMessages = useStore((s) => s.clearMessages);
+  const selectedModel = useStore((s) => s.selectedModel);
+  const setSelectedModel = useStore((s) => s.setSelectedModel);
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef(null);
+
+  const models = [
+    { id: "claude-4-sonnet", name: "Claude 4 Sonnet" },
+    { id: "O3", name: "O3" },
+  ];
 
   // Auto-resize textarea
   const adjustTextareaHeight = () => {
@@ -92,8 +105,8 @@ export default function QueryBar() {
                   isTranscribing
                     ? "Transcribing... speak clearly"
                     : awaitingUserResponse
-                      ? "Press Enter to confirm or Esc to cancel"
-                      : "What can I do for you?"
+                    ? "Press Enter to confirm or Esc to cancel"
+                    : "What can I do for you?"
                 }
                 className={`w-full min-h-[24px] max-h-[150px] resize-none border-none outline-none bg-transparent text-left overflow-y-auto ${
                   isTranscribing ? "text-muted-foreground" : ""
@@ -113,26 +126,33 @@ export default function QueryBar() {
 
             {/* Bottom row with icons */}
             <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center">
-              {/* Left side icons */}
+              {/* Left side - Model dropdown */}
               <div className="flex gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  title="Add attachment"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  title="Tools"
-                >
-                  <Sliders className="h-3.5 w-3.5" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                    >
+                      {models.find((m) => m.id === selectedModel)?.name ||
+                        selectedModel}
+                      <ChevronUp className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" sideOffset={8}>
+                    {models.map((model) => (
+                      <DropdownMenuItem
+                        key={model.id}
+                        onClick={() => setSelectedModel(model.id)}
+                        className="text-sm"
+                      >
+                        {model.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Right side icons */}

@@ -9,9 +9,36 @@ const useStore = create((set, get) => ({
   messages: [],
   isTranscribing: false,
   awaitingUserResponse: false,
+  selectedModel: "claude-4-sonnet",
+
+  // Load settings from main process
+  loadSettings: async () => {
+    try {
+      if (window.api?.getSettings) {
+        const settings = await window.api.getSettings();
+        set({ settings });
+      }
+    } catch (error) {
+      console.error("Failed to load settings:", error);
+    }
+  },
 
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
+
+  // Replace the last image message with a new one, or add if no image exists
+  replaceLastImageMessage: (message) =>
+    set((state) => {
+      if (
+        state.messages.length !== 0 &&
+        state.messages[state.messages.length - 1].type === "image"
+      ) {
+        return {
+          messages: [...state.messages.slice(0, -1), message],
+        };
+      }
+      return { messages: [...state.messages, message] };
+    }),
 
   clearMessages: () => set({ messages: [] }),
 
@@ -45,17 +72,26 @@ const useStore = create((set, get) => ({
       });
     }
   },
+
+  setSelectedModel: (model) => set({ selectedModel: model }),
 }));
 
 // Attach backend-push listener globally once store is defined
 if (typeof window !== "undefined" && window.api?.onPush) {
   window.api.onPush((payload) => {
     console.log("payload", payload);
-    useStore.getState().addMessage({
+    const message = {
       type: payload.type,
       content: payload.content,
       timestamp: new Date(),
-    });
+    };
+
+    // Handle different message types for screenshot flow
+    if (payload.type === "image") {
+      useStore.getState().replaceLastImageMessage(message);
+    } else {
+      useStore.getState().addMessage(message);
+    }
   });
 }
 

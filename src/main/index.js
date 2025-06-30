@@ -52,7 +52,21 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
+  // ========= SETTINGS MANAGEMENT =========
+  const defaultSettings = {
+    globalShortcuts: {
+      toggleWindow: "Alt+P"
+    }
+  };
+
+  // TODO: Load settings from file/storage
+  let currentSettings = { ...defaultSettings };
+
   // ========= IPC HANDLERS =========
+  ipcMain.handle("get-settings", async () => {
+    return currentSettings;
+  });
+
   ipcMain.handle("query", async (_event, payload) => {
     console.log("query", payload);
     // TODO: attach JWT and forward to your Vercel backend.

@@ -132,18 +132,20 @@ export function toggleChatWindow() {
         takeScreenshotFn()
           .then((res) => {
             if (res && res.image) {
-              const payload = {
+              const imagePayload = {
                 type: "image",
                 content: `data:image/jpeg;base64,${res.image}`,
               };
 
+              const sendMessages = () => {
+                chatWindow.webContents.send("backend-push", imagePayload);
+              };
+
               // If this is the very first load we may need to wait until DOM is ready
               if (chatWindow.webContents.isLoading()) {
-                chatWindow.webContents.once("dom-ready", () => {
-                  chatWindow.webContents.send("backend-push", payload);
-                });
+                chatWindow.webContents.once("dom-ready", sendMessages);
               } else {
-                chatWindow.webContents.send("backend-push", payload);
+                sendMessages();
               }
             } else {
               console.log("no image in screenshot response");

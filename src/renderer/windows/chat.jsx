@@ -11,9 +11,15 @@ import {
 export default function ChatWindow() {
   const messages = useStore((s) => s.messages);
   const settings = useStore((s) => s.settings);
+  const loadSettings = useStore((s) => s.loadSettings);
   const shortcut = settings?.globalShortcuts?.toggleWindow;
 
   const bottomRef = useRef(null);
+
+  // Load settings on component mount
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,7 +43,7 @@ export default function ChatWindow() {
       <div className="flex-1 mt-6">
         <div className="flex-1 overflow-y-auto px-6 py-6">
           <div className="max-w-4xl mx-auto">
-            <div className="space-y-8">
+            <div className="space-y-4">
               {messages.map((message, index) => {
                 switch (message.type) {
                   case "user":
