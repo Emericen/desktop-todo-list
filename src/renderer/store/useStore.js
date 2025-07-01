@@ -89,6 +89,62 @@ const useStore = create((set, get) => ({
     }
   },
 
+  submitStreamingQuery: async (rawQuery) => {
+    const query = rawQuery.trim()
+    if (!query) return
+
+    // Add user message to state first
+    const userMessage = {
+      type: 'user',
+      content: query,
+      timestamp: new Date()
+    }
+    get().addMessage(userMessage)
+
+    // Add empty assistant message that we'll update with chunks
+    const assistantMessage = {
+      type: 'text',
+      content: '',
+      timestamp: new Date()
+    }
+    get().addMessage(assistantMessage)
+
+    try {
+      // Get the index of the assistant message we just added
+      let assistantMessageIndex = get().messages.length - 1
+
+      // Send streaming query with chunk handler
+      await window.api.sendStreamingQuery(
+        {
+          messages: get().messages.slice(0, -1), // Exclude the empty assistant message
+          selectedModel: get().selectedModel
+        },
+        (chunk) => {
+          // Update the assistant message with accumulated content
+          set((state) => {
+            const updatedMessages = [...state.messages]
+            updatedMessages[assistantMessageIndex] = {
+              ...updatedMessages[assistantMessageIndex],
+              content: updatedMessages[assistantMessageIndex].content + chunk
+            }
+            return { messages: updatedMessages }
+          })
+        }
+      )
+    } catch (error) {
+      // Update the assistant message with error
+      set((state) => {
+        const updatedMessages = [...state.messages]
+        const assistantMessageIndex = updatedMessages.length - 1
+        updatedMessages[assistantMessageIndex] = {
+          ...updatedMessages[assistantMessageIndex],
+          content: `Error: ${error}`
+        }
+        return { messages: updatedMessages }
+      })
+    }
+  },
+
   setSelectedModel: (model) => set({ selectedModel: model })
 }))
 

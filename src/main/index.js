@@ -18,6 +18,7 @@ import {
   typeText,
   echo
 } from './clients/os.js'
+import { sendQuery } from './clients/platform.js'
 import { registerShortcuts, unregisterAllShortcuts } from './shortcuts.js'
 
 // Load environment variables
@@ -67,36 +68,17 @@ app.whenReady().then(() => {
     return currentSettings
   })
 
-  ipcMain.handle('query', async (_event, payload) => {
-    console.log('query - sending full conversation:', payload)
-
-    const baseUrl = process.env.API_BASE_URL
-
-    try {
-      // Send entire conversation state to backend
-      const requestBody = {
-        messages: payload.messages || [],
-        selectedModel: payload.selectedModel || 'claude-4-sonnet'
+  ipcMain.handle('query', async (event, payload) => {
+    // Check if streaming is requested
+    if (payload.streaming) {
+      const onChunk = (chunk) => {
+        // Send chunk to renderer via the same event sender
+        event.sender.send('query-chunk', chunk)
       }
-
-      const response = await fetch(`${baseUrl}/api/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      return { type: 'text', data: data.response }
-    } catch (error) {
-      console.error('API Error:', error)
-      return {
-        type: 'text',
-        data: `Error connecting to backend: ${error.message}`
-      }
+      
+      return await sendQuery(payload, onChunk)
+    } else {
+      return await sendQuery(payload)
     }
   })
 

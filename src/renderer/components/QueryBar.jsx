@@ -7,22 +7,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import {
-  Mic,
-  MicOff,
-  Send,
-  Plus,
-  Sliders,
-  ChevronDown,
-  ChevronUp
-} from 'lucide-react'
+import { Mic, MicOff, Send, ChevronUp } from 'lucide-react'
 import useStore from '@/store/useStore'
 
 export default function QueryBar() {
   const isTranscribing = useStore((s) => s.isTranscribing)
   const setIsTranscribing = useStore((s) => s.setIsTranscribing)
   const awaitingUserResponse = useStore((s) => s.awaitingUserResponse)
-  const submitQuery = useStore((s) => s.submitQuery)
+  const submitStreamingQuery = useStore((s) => s.submitStreamingQuery)
   const clearMessages = useStore((s) => s.clearMessages)
   const selectedModel = useStore((s) => s.selectedModel)
   const setSelectedModel = useStore((s) => s.setSelectedModel)
@@ -73,7 +65,7 @@ export default function QueryBar() {
         return
       }
 
-      submitQuery(messageText)
+      submitStreamingQuery(messageText)
     } catch (error) {
       console.error('Error submitting message:', error)
       setInput(messageText) // Restore input on error
