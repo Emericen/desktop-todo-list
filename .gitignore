@@ -76,3 +76,5 @@ build/
 
 # Eddy's test files
 experiments/
+# Environment configuration
+.env

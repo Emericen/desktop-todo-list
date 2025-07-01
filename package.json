@@ -6,8 +6,8 @@
   "author": "example.com",
   "homepage": "https://electron-vite.org",
   "scripts": {
-    "start": "electron-vite preview",
-    "dev": "electron-vite dev",
+    "start": "source scripts/env.sh && electron-vite preview",
+    "dev": "source scripts/env.sh && electron-vite dev",
     "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps && python -m pip install -r requirements.txt",
     "build:unpack": "npm run build && electron-builder --dir",

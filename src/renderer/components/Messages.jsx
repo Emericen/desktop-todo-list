@@ -5,7 +5,7 @@ import useStore from "@/store/useStore";
 
 export function UserMessage({ message }) {
   return (
-    <div className="flex w-full justify-end mb-6 mt-2">
+    <div className="flex w-full justify-end">
       <div className="max-w-[75%] rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3 text-base leading-relaxed">
         <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
@@ -15,7 +15,7 @@ export function UserMessage({ message }) {
 
 export function TextMessage({ message }) {
   return (
-    <div className="w-full group mb-2">
+    <div className="w-full group">
       <p className="text-base text-foreground whitespace-pre-wrap leading-relaxed">
         {message.content}
       </p>
@@ -25,7 +25,7 @@ export function TextMessage({ message }) {
 
 export function ImageMessage({ message }) {
   return (
-    <div className="w-full group mb-2">
+    <div className="w-full group">
       <div className="w-full">
         <img
           src={message.content}
@@ -42,7 +42,7 @@ export function ChoiceMessage({ message, index }) {
 
   return (
     <div
-      className={`w-full mb-2 ${
+      className={`w-full ${
         message.answered ? "opacity-50" : ""
       } transition-opacity duration-200`}
     >
