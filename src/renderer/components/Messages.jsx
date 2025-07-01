@@ -2,11 +2,12 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import useStore from "@/store/useStore";
+import ReactMarkdown from "react-markdown";
 
 export function UserMessage({ message }) {
   return (
     <div className="flex w-full justify-end">
-      <div className="max-w-[75%] rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3 text-base leading-relaxed">
+      <div className="max-w-[75%] rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3 text-base leading-normal">
         <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
     </div>
@@ -16,9 +17,55 @@ export function UserMessage({ message }) {
 export function TextMessage({ message }) {
   return (
     <div className="w-full group">
-      <p className="text-base text-foreground whitespace-pre-wrap leading-relaxed">
+      <ReactMarkdown
+        components={{
+          p: ({ children }) => (
+            <p className="text-base text-foreground leading-normal mb-4 last:mb-0">
+              {children}
+            </p>
+          ),
+          h1: ({ children }) => (
+            <h1 className="text-xl font-bold text-foreground mb-3 mt-6 first:mt-0">
+              {children}
+            </h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="text-lg font-bold text-foreground mb-3 mt-5 first:mt-0">
+              {children}
+            </h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="text-base font-bold text-foreground mb-2 mt-4 first:mt-0">
+              {children}
+            </h3>
+          ),
+          ul: ({ children }) => (
+            <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal list-inside mb-4 space-y-1">
+              {children}
+            </ol>
+          ),
+          li: ({ children }) => (
+            <li className="text-base text-foreground leading-normal">
+              {children}
+            </li>
+          ),
+          code: ({ children }) => (
+            <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">
+              {children}
+            </code>
+          ),
+          pre: ({ children }) => (
+            <pre className="bg-gray-100 p-3 rounded mb-4 overflow-x-auto">
+              {children}
+            </pre>
+          ),
+        }}
+      >
         {message.content}
-      </p>
+      </ReactMarkdown>
     </div>
   );
 }

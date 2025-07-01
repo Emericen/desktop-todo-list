@@ -59,14 +59,21 @@ const useStore = create((set, get) => ({
     const query = rawQuery.trim();
     if (!query) return;
 
-    get().addMessage({
+    // Add user message to state first
+    const userMessage = {
       type: "user",
       content: query,
       timestamp: new Date(),
-    });
+    };
+    get().addMessage(userMessage);
 
     try {
-      const res = await window.api.sendQuery({ prompt: query });
+      // Send entire conversation state to backend
+      const res = await window.api.sendQuery({ 
+        messages: get().messages,
+        selectedModel: get().selectedModel 
+      });
+      
       const content = res.data || res.message || JSON.stringify(res);
       get().addMessage({
         type: "text",

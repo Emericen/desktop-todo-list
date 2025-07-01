@@ -67,20 +67,16 @@ app.whenReady().then(() => {
     return currentSettings;
   });
 
-    ipcMain.handle("query", async (_event, payload) => {
-    console.log("query", payload);
+  ipcMain.handle("query", async (_event, payload) => {
+    console.log("query - sending full conversation:", payload);
     
     const baseUrl = process.env.API_BASE_URL;
     
     try {
+      // Send entire conversation state to backend
       const requestBody = {
-        message: payload.prompt,
-        systemPrompt: payload.systemPrompt || "You are a helpful AI assistant.",
-        model: payload.model || "claude-sonnet-4-20250514", 
-        betas: payload.betas || ["computer-use-2025-01-24"],
-        max_tokens: payload.max_tokens || 1024,
-        temperature: payload.temperature || 0,
-        messages: payload.messages || []
+        messages: payload.messages || [],
+        selectedModel: payload.selectedModel || "claude-4-sonnet"
       };
 
       const response = await fetch(`${baseUrl}/api/query`, {
@@ -88,9 +84,11 @@ app.whenReady().then(() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
       const data = await response.json();
       return { type: "text", data: data.response };
     } catch (error) {
