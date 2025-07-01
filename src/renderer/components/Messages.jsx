@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Check, X } from 'lucide-react'
 import useStore from '@/store/useStore'
@@ -135,4 +135,22 @@ export function ChoiceMessage({ message, index }) {
       </blockquote>
     </div>
   )
+}
+
+export function LoadingMessage() {
+  const [dots, setDots] = useState('.')
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => {
+        if (prev === '.') return '..'
+        if (prev === '..') return '...'
+        return '.'
+      })
+    }, 500)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  return <div className="text-muted-foreground font-mono">{dots}</div>
 }

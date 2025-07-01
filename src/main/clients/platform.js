@@ -47,7 +47,10 @@ export async function sendQuery(payload, onChunk = null) {
     }
 
     // Handle streaming response
-    if (onChunk && response.headers.get('content-type')?.includes('text/event-stream')) {
+    if (
+      onChunk &&
+      response.headers.get('content-type')?.includes('text/event-stream')
+    ) {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let fullResponse = ''

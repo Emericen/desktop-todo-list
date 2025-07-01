@@ -5,7 +5,8 @@ import {
   UserMessage,
   TextMessage,
   ImageMessage,
-  ChoiceMessage
+  ChoiceMessage,
+  LoadingMessage
 } from '@/components/Messages'
 
 export default function ChatWindow() {
@@ -50,6 +51,8 @@ export default function ChatWindow() {
                     return <UserMessage key={index} message={message} />
                   case 'image':
                     return <ImageMessage key={index} message={message} />
+                  case 'loading':
+                    return <LoadingMessage key={index} />
                   case 'confirmation':
                     return (
                       <ChoiceMessage

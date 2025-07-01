@@ -101,43 +101,61 @@ const useStore = create((set, get) => ({
     }
     get().addMessage(userMessage)
 
-    // Add empty assistant message that we'll update with chunks
-    const assistantMessage = {
-      type: 'text',
+    // Add loading message that we'll replace with actual content
+    const loadingMessage = {
+      type: 'loading',
       content: '',
       timestamp: new Date()
     }
-    get().addMessage(assistantMessage)
+    get().addMessage(loadingMessage)
 
     try {
-      // Get the index of the assistant message we just added
-      let assistantMessageIndex = get().messages.length - 1
+      // Get the index of the loading message we just added
+      let messageIndex = get().messages.length - 1
+      let isFirstChunk = true
 
       // Send streaming query with chunk handler
       await window.api.sendStreamingQuery(
         {
-          messages: get().messages.slice(0, -1), // Exclude the empty assistant message
+          messages: get().messages.slice(0, -1), // Exclude the loading message
           selectedModel: get().selectedModel
         },
         (chunk) => {
-          // Update the assistant message with accumulated content
-          set((state) => {
-            const updatedMessages = [...state.messages]
-            updatedMessages[assistantMessageIndex] = {
-              ...updatedMessages[assistantMessageIndex],
-              content: updatedMessages[assistantMessageIndex].content + chunk
-            }
-            return { messages: updatedMessages }
-          })
+          // On first chunk, convert loading message to text message
+          if (isFirstChunk) {
+            set((state) => {
+              const updatedMessages = [...state.messages]
+              updatedMessages[messageIndex] = {
+                ...updatedMessages[messageIndex],
+                type: 'text',
+                content: chunk
+              }
+              return { messages: updatedMessages }
+            })
+            isFirstChunk = false
+          } else {
+            // Update the message with accumulated content
+            set((state) => {
+              const updatedMessages = [...state.messages]
+              updatedMessages[messageIndex] = {
+                ...updatedMessages[messageIndex],
+                content: updatedMessages[messageIndex].content + chunk
+              }
+              return { messages: updatedMessages }
+            })
+          }
         }
       )
     } catch (error) {
-      // Update the assistant message with error
+      console.error('Streaming error:', error)
+
+      // Update the loading message with error
       set((state) => {
         const updatedMessages = [...state.messages]
-        const assistantMessageIndex = updatedMessages.length - 1
-        updatedMessages[assistantMessageIndex] = {
-          ...updatedMessages[assistantMessageIndex],
+        const messageIndex = updatedMessages.length - 1
+        updatedMessages[messageIndex] = {
+          ...updatedMessages[messageIndex],
+          type: 'text',
           content: `Error: ${error}`
         }
         return { messages: updatedMessages }
