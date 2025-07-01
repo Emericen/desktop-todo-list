@@ -1,89 +1,97 @@
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { useState, useEffect, useRef } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Mic, MicOff, Send, Plus, Sliders, ChevronDown, ChevronUp } from "lucide-react";
-import useStore from "@/store/useStore";
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import {
+  Mic,
+  MicOff,
+  Send,
+  Plus,
+  Sliders,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react'
+import useStore from '@/store/useStore'
 
 export default function QueryBar() {
-  const isTranscribing = useStore((s) => s.isTranscribing);
-  const setIsTranscribing = useStore((s) => s.setIsTranscribing);
-  const awaitingUserResponse = useStore((s) => s.awaitingUserResponse);
-  const submitQuery = useStore((s) => s.submitQuery);
-  const clearMessages = useStore((s) => s.clearMessages);
-  const selectedModel = useStore((s) => s.selectedModel);
-  const setSelectedModel = useStore((s) => s.setSelectedModel);
-  const models = useStore((s) => s.models);
-  const [input, setInput] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const textareaRef = useRef(null);
+  const isTranscribing = useStore((s) => s.isTranscribing)
+  const setIsTranscribing = useStore((s) => s.setIsTranscribing)
+  const awaitingUserResponse = useStore((s) => s.awaitingUserResponse)
+  const submitQuery = useStore((s) => s.submitQuery)
+  const clearMessages = useStore((s) => s.clearMessages)
+  const selectedModel = useStore((s) => s.selectedModel)
+  const setSelectedModel = useStore((s) => s.setSelectedModel)
+  const models = useStore((s) => s.models)
+  const [input, setInput] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const textareaRef = useRef(null)
 
   // Auto-resize textarea
   const adjustTextareaHeight = () => {
-    const textarea = textareaRef.current;
+    const textarea = textareaRef.current
     if (textarea) {
-      textarea.style.height = "auto";
-      const newHeight = Math.min(textarea.scrollHeight, 150); // Max 150px
-      textarea.style.height = `${newHeight}px`;
+      textarea.style.height = 'auto'
+      const newHeight = Math.min(textarea.scrollHeight, 150) // Max 150px
+      textarea.style.height = `${newHeight}px`
     }
-  };
+  }
 
   useEffect(() => {
-    adjustTextareaHeight();
-  }, [input]);
+    adjustTextareaHeight()
+  }, [input])
 
   // Focus textarea when renderer receives focus request from main process
   useEffect(() => {
-    if (typeof window !== "undefined" && window.api?.onFocusQueryInput) {
+    if (typeof window !== 'undefined' && window.api?.onFocusQueryInput) {
       window.api.onFocusQueryInput(() => {
-        textareaRef.current?.focus();
-      });
+        textareaRef.current?.focus()
+      })
     }
 
     // Initial autofocus when component mounts
-    textareaRef.current?.focus();
-  }, []);
+    textareaRef.current?.focus()
+  }, [])
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || isSubmitting) return;
+    e.preventDefault()
+    if (!input.trim() || isSubmitting) return
 
-    const messageText = input.trim();
-    setInput("");
-    setIsSubmitting(true);
+    const messageText = input.trim()
+    setInput('')
+    setIsSubmitting(true)
 
     try {
       // Handle local clear command
-      if (messageText === "/clear") {
-        clearMessages();
-        setIsSubmitting(false);
-        return;
+      if (messageText === '/clear') {
+        clearMessages()
+        setIsSubmitting(false)
+        return
       }
 
-      submitQuery(messageText);
+      submitQuery(messageText)
     } catch (error) {
-      console.error("Error submitting message:", error);
-      setInput(messageText); // Restore input on error
+      console.error('Error submitting message:', error)
+      setInput(messageText) // Restore input on error
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit(e)
     }
-  };
+  }
 
   const handleTranscribe = () => {
-    setIsTranscribing(!isTranscribing);
-  };
+    setIsTranscribing(!isTranscribing)
+  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background p-4">
@@ -99,13 +107,13 @@ export default function QueryBar() {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isTranscribing
-                    ? "Transcribing... speak clearly"
+                    ? 'Transcribing... speak clearly'
                     : awaitingUserResponse
-                    ? "Press Enter to confirm or Esc to cancel"
-                    : "What can I do for you?"
+                    ? 'Press Enter to confirm or Esc to cancel'
+                    : 'What can I do for you?'
                 }
                 className={`w-full min-h-[24px] max-h-[150px] resize-none border-none outline-none bg-transparent text-left overflow-y-auto ${
-                  isTranscribing ? "text-muted-foreground" : ""
+                  isTranscribing ? 'text-muted-foreground' : ''
                 }`}
                 disabled={isTranscribing || awaitingUserResponse}
                 spellCheck="false"
@@ -114,8 +122,8 @@ export default function QueryBar() {
                 autoComplete="off"
                 rows={1}
                 style={{
-                  scrollbarWidth: "thin",
-                  scrollbarColor: "#cbd5e1 transparent",
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#cbd5e1 transparent'
                 }}
               />
             </div>
@@ -155,12 +163,12 @@ export default function QueryBar() {
               <div className="flex gap-1">
                 <Button
                   type="button"
-                  variant={isTranscribing ? "destructive" : "ghost"}
+                  variant={isTranscribing ? 'destructive' : 'ghost'}
                   size="sm"
                   className="h-7 w-7 p-0"
                   onClick={handleTranscribe}
                   disabled={isTranscribing || awaitingUserResponse}
-                  title={isTranscribing ? "Stop recording" : "Start recording"}
+                  title={isTranscribing ? 'Stop recording' : 'Start recording'}
                 >
                   {isTranscribing ? (
                     <MicOff className="h-3.5 w-3.5" />
@@ -200,5 +208,5 @@ export default function QueryBar() {
         </form>
       </div>
     </div>
-  );
+  )
 }

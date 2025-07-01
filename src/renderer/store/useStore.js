@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from 'zustand'
 
 // Global UI store (frontend-only)
 // Holds non-persistent app state such as theme, in-app shortcuts, chat messages, etc.
@@ -9,9 +9,9 @@ const useStore = create((set, get) => ({
   messages: [],
   isTranscribing: false,
   awaitingUserResponse: false,
-  selectedModel: "claude-4-sonnet",
+  selectedModel: 'claude-4-sonnet',
   models: [
-    { id: "claude-4-sonnet", name: "Claude 4 Sonnet" },
+    { id: 'claude-4-sonnet', name: 'Claude 4 Sonnet' }
     // { id: "O3", name: "O3" },
   ],
 
@@ -19,11 +19,11 @@ const useStore = create((set, get) => ({
   loadSettings: async () => {
     try {
       if (window.api?.getSettings) {
-        const settings = await window.api.getSettings();
-        set({ settings });
+        const settings = await window.api.getSettings()
+        set({ settings })
       }
     } catch (error) {
-      console.error("Failed to load settings:", error);
+      console.error('Failed to load settings:', error)
     }
   },
 
@@ -40,13 +40,13 @@ const useStore = create((set, get) => ({
       // };
       if (
         state.messages.length !== 0 &&
-        state.messages[state.messages.length - 1].type === "image"
+        state.messages[state.messages.length - 1].type === 'image'
       ) {
         return {
-          messages: [...state.messages.slice(0, -1), message],
-        };
+          messages: [...state.messages.slice(0, -1), message]
+        }
       }
-      return { messages: [...state.messages, message] };
+      return { messages: [...state.messages, message] }
     }),
 
   clearMessages: () => set({ messages: [] }),
@@ -56,59 +56,59 @@ const useStore = create((set, get) => ({
   setAwaitingUserResponse: (val) => set({ awaitingUserResponse: val }),
 
   submitQuery: async (rawQuery) => {
-    const query = rawQuery.trim();
-    if (!query) return;
+    const query = rawQuery.trim()
+    if (!query) return
 
     // Add user message to state first
     const userMessage = {
-      type: "user",
+      type: 'user',
       content: query,
-      timestamp: new Date(),
-    };
-    get().addMessage(userMessage);
+      timestamp: new Date()
+    }
+    get().addMessage(userMessage)
 
     try {
       // Send entire conversation state to backend
-      const res = await window.api.sendQuery({ 
+      const res = await window.api.sendQuery({
         messages: get().messages,
-        selectedModel: get().selectedModel 
-      });
-      
-      const content = res.data || res.message || JSON.stringify(res);
+        selectedModel: get().selectedModel
+      })
+
+      const content = res.data || res.message || JSON.stringify(res)
       get().addMessage({
-        type: "text",
+        type: 'text',
         content: content,
-        timestamp: new Date(),
-      });
+        timestamp: new Date()
+      })
     } catch (error) {
       get().addMessage({
-        type: "text",
+        type: 'text',
         content: `Error: ${error}`,
-        timestamp: new Date(),
-      });
+        timestamp: new Date()
+      })
     }
   },
 
-  setSelectedModel: (model) => set({ selectedModel: model }),
-}));
+  setSelectedModel: (model) => set({ selectedModel: model })
+}))
 
 // Attach backend-push listener globally once store is defined
-if (typeof window !== "undefined" && window.api?.onPush) {
+if (typeof window !== 'undefined' && window.api?.onPush) {
   window.api.onPush((payload) => {
-    console.log("payload", payload);
+    console.log('payload', payload)
     const message = {
       type: payload.type,
       content: payload.content,
-      timestamp: new Date(),
-    };
+      timestamp: new Date()
+    }
 
     // Handle different message types for screenshot flow
-    if (payload.type === "image") {
-      useStore.getState().replaceLastImageMessage(message);
+    if (payload.type === 'image') {
+      useStore.getState().replaceLastImageMessage(message)
     } else {
-      useStore.getState().addMessage(message);
+      useStore.getState().addMessage(message)
     }
-  });
+  })
 }
 
-export default useStore;
+export default useStore

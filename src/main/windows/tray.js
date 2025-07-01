@@ -1,62 +1,62 @@
-import { Tray, Menu, nativeImage, app } from "electron";
+import { Tray, Menu, nativeImage, app } from 'electron'
 
 // ========== SYSTEM TRAY STATE ==========
-let tray = null;
+let tray = null
 
 export function createSystemTray(callbacks = {}) {
-  const { onShowChat, onOpenSettings, onQuit } = callbacks;
+  const { onShowChat, onOpenSettings, onQuit } = callbacks
 
   // Create a simple white square icon (16x16)
-  const size = 16;
-  const whiteBuffer = Buffer.alloc(size * size * 4, 255); // just white square
+  const size = 16
+  const whiteBuffer = Buffer.alloc(size * size * 4, 255) // just white square
   const whitePixel = nativeImage.createFromBuffer(whiteBuffer, {
     width: size,
-    height: size,
-  });
-  tray = new Tray(whitePixel);
+    height: size
+  })
+  tray = new Tray(whitePixel)
 
   // Create context menu
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: "Show Chat",
+      label: 'Show Chat',
       click: () => {
-        if (onShowChat) onShowChat();
-      },
+        if (onShowChat) onShowChat()
+      }
     },
-    { type: "separator" },
+    { type: 'separator' },
     {
-      label: "Settings",
+      label: 'Settings',
       click: () => {
-        if (onOpenSettings) onOpenSettings();
-      },
+        if (onOpenSettings) onOpenSettings()
+      }
     },
-    { type: "separator" },
+    { type: 'separator' },
     {
-      label: "Quit",
+      label: 'Quit',
       click: () => {
         if (onQuit) {
-          onQuit();
+          onQuit()
         } else {
-          app.quit();
+          app.quit()
         }
-      },
-    },
-  ]);
+      }
+    }
+  ])
 
-  tray.setContextMenu(contextMenu);
-  tray.setToolTip("AI Assistant");
+  tray.setContextMenu(contextMenu)
+  tray.setToolTip('AI Assistant')
 
-  console.log("System tray created");
-  return tray;
+  console.log('System tray created')
+  return tray
 }
 
 export function destroyTray() {
   if (tray) {
-    tray.destroy();
-    tray = null;
+    tray.destroy()
+    tray = null
   }
 }
 
 export function getTray() {
-  return tray;
-} 
+  return tray
+}

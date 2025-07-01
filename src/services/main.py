@@ -56,5 +56,5 @@ def type_text():
     return jsonify({"message": "ok"}), 200
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8765, threaded=False)

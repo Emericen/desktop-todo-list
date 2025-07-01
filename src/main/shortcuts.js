@@ -1,7 +1,7 @@
-import { globalShortcut } from "electron";
+import { globalShortcut } from 'electron'
 
 // ===== Shortcut registry =====
-const registered = new Map(); // accelerator → callback
+const registered = new Map() // accelerator → callback
 
 /**
  * Register a set of global shortcuts.
@@ -9,22 +9,22 @@ const registered = new Map(); // accelerator → callback
  */
 export function registerShortcuts(shortcutMap = {}) {
   // Clear existing first
-  unregisterAllShortcuts();
+  unregisterAllShortcuts()
 
   Object.entries(shortcutMap).forEach(([accelerator, handler]) => {
-    if (accelerator && typeof handler === "function") {
-      const ok = globalShortcut.register(accelerator, handler);
+    if (accelerator && typeof handler === 'function') {
+      const ok = globalShortcut.register(accelerator, handler)
       if (ok) {
-        registered.set(accelerator, handler);
-        console.log(`[Shortcut] Registered ${accelerator}`);
+        registered.set(accelerator, handler)
+        console.log(`[Shortcut] Registered ${accelerator}`)
       } else {
-        console.warn(`[Shortcut] Failed to register ${accelerator}`);
+        console.warn(`[Shortcut] Failed to register ${accelerator}`)
       }
     }
-  });
+  })
 }
 
 export function unregisterAllShortcuts() {
-  globalShortcut.unregisterAll();
-  registered.clear();
+  globalShortcut.unregisterAll()
+  registered.clear()
 }
