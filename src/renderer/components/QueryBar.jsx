@@ -14,7 +14,7 @@ export default function QueryBar() {
   const isTranscribing = useStore((s) => s.isTranscribing)
   const setIsTranscribing = useStore((s) => s.setIsTranscribing)
   const awaitingUserResponse = useStore((s) => s.awaitingUserResponse)
-  const submitStreamingQuery = useStore((s) => s.submitStreamingQuery)
+  const submitQuery = useStore((s) => s.submitQuery)
   const clearMessages = useStore((s) => s.clearMessages)
   const selectedModel = useStore((s) => s.selectedModel)
   const setSelectedModel = useStore((s) => s.setSelectedModel)
@@ -65,7 +65,7 @@ export default function QueryBar() {
         return
       }
 
-      submitStreamingQuery(messageText)
+      submitQuery(messageText)
     } catch (error) {
       console.error('Error submitting message:', error)
       setInput(messageText) // Restore input on error
@@ -121,10 +121,11 @@ export default function QueryBar() {
             </div>
 
             {/* Bottom row with icons */}
-            <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center">
+            <div className="absolute bottom-2 left-2 right-2 flex items-center">
               {/* Left side - Model dropdown */}
               <div className="flex gap-1">
-                <DropdownMenu>
+                {/* TODO: Add this back when we have multiple models to select from */}
+                {/* <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
@@ -148,8 +149,11 @@ export default function QueryBar() {
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
-                </DropdownMenu>
+                </DropdownMenu> */}
               </div>
+
+              {/* Spacer to push buttons to the right */}
+              <div className="flex-1"></div>
 
               {/* Right side icons */}
               <div className="flex gap-1">

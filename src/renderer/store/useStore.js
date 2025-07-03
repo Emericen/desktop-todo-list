@@ -67,40 +67,6 @@ const useStore = create((set, get) => ({
     }
     get().addMessage(userMessage)
 
-    try {
-      // Send entire conversation state to backend
-      const res = await window.api.sendQuery({
-        messages: get().messages,
-        selectedModel: get().selectedModel
-      })
-
-      const content = res.data || res.message || JSON.stringify(res)
-      get().addMessage({
-        type: 'text',
-        content: content,
-        timestamp: new Date()
-      })
-    } catch (error) {
-      get().addMessage({
-        type: 'text',
-        content: `Error: ${error}`,
-        timestamp: new Date()
-      })
-    }
-  },
-
-  submitStreamingQuery: async (rawQuery) => {
-    const query = rawQuery.trim()
-    if (!query) return
-
-    // Add user message to state first
-    const userMessage = {
-      type: 'user',
-      content: query,
-      timestamp: new Date()
-    }
-    get().addMessage(userMessage)
-
     // Add loading message that we'll replace with actual content
     const loadingMessage = {
       type: 'loading',
@@ -115,7 +81,7 @@ const useStore = create((set, get) => ({
       let isFirstChunk = true
 
       // Send streaming query with chunk handler
-      await window.api.sendStreamingQuery(
+      await window.api.sendQuery(
         {
           messages: get().messages.slice(0, -1), // Exclude the loading message
           selectedModel: get().selectedModel

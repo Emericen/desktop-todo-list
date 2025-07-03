@@ -29,11 +29,25 @@ def take_screenshot():
     frame_bgr = np.frombuffer(raw.rgb, dtype=np.uint8).reshape(raw.height, raw.width, 3)
     # 3. convert BGR to RGB for web display
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-    # 4. encode to JPEG (quality 80)
+
+    # 4. optionally downscale to max 1280x720 (maintain aspect ratio)
+    max_w, max_h = 1280, 720
+    h, w = frame_rgb.shape[:2]
+    scale = min(max_w / w, max_h / h, 1.0)  # <=1 to avoid upscaling
+    if scale < 1.0:
+        new_w, new_h = int(w * scale), int(h * scale)
+        frame_rgb = cv2.resize(frame_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        w, h = new_w, new_h
+
+    # 5. encode to JPEG (quality 80)
     ok, jpg = cv2.imencode(".jpg", frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 80])
-    # 5. Base-64 for WebSocket text frame
+
+    # 6. Base-64 for WebSocket text frame
     b64 = base64.b64encode(jpg).decode()
-    return jsonify({"image": b64}), 200
+
+    # 7. Return image plus dimensions for debugging
+    print(f"Screenshot captured {w}x{h}")
+    return jsonify({"image": b64, "width": w, "height": h}), 200
 
 
 @app.route("/position", methods=["POST"])

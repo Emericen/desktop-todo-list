@@ -3,21 +3,24 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
-  // Send a query and receive resolved value via promise
-  sendQuery: (payload) => ipcRenderer.invoke('query', payload),
-
   // Send a streaming query with chunk callback
-  sendStreamingQuery: (payload, onChunk) => {
-    // Listen for chunks
-    const handleChunk = (_e, chunk) => onChunk(chunk)
-    ipcRenderer.on('query-chunk', handleChunk)
-    
-    // Send the query with streaming flag
-    return ipcRenderer.invoke('query', { ...payload, streaming: true }).then((result) => {
-      // Clean up listener when done
-      ipcRenderer.removeListener('query-chunk', handleChunk)
-      return result
-    })
+  sendQuery: (payload, onChunk) => {
+    console.log('sendQuery', payload)
+    if (onChunk) {
+      // Listen for chunks
+      const handleChunk = (_e, chunk) => onChunk(chunk)
+      ipcRenderer.on('query-chunk', handleChunk)
+      
+      // Send the query
+      return ipcRenderer.invoke('query', payload).then((result) => {
+        // Clean up listener when done
+        ipcRenderer.removeListener('query-chunk', handleChunk)
+        return result
+      })
+    } else {
+      // Fallback for non-streaming usage (though we'll always stream)
+      return ipcRenderer.invoke('query', payload)
+    }
   },
 
   // Send an OS-level action and await its JSON result

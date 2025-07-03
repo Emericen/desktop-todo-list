@@ -18,7 +18,7 @@ import {
   typeText,
   echo
 } from './clients/os.js'
-import { sendQuery } from './clients/platform.js'
+import { sendQuery } from './clients/anthropic.js'
 import { registerShortcuts, unregisterAllShortcuts } from './shortcuts.js'
 
 // Load environment variables
@@ -69,17 +69,12 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('query', async (event, payload) => {
-    // Check if streaming is requested
-    if (payload.streaming) {
-      const onChunk = (chunk) => {
-        // Send chunk to renderer via the same event sender
-        event.sender.send('query-chunk', chunk)
-      }
-      
-      return await sendQuery(payload, onChunk)
-    } else {
-      return await sendQuery(payload)
+    const onChunk = (chunk) => {
+      // Send chunk to renderer via the same event sender
+      event.sender.send('query-chunk', chunk)
     }
+
+    return await sendQuery(payload, onChunk)
   })
 
   ipcMain.handle('action', async (_event, payload) => {
