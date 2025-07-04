@@ -1,4 +1,4 @@
-import { Tray, Menu, nativeImage, app } from 'electron'
+import { Tray, Menu, nativeImage, app } from "electron"
 
 // ========== SYSTEM TRAY STATE ==========
 let tray = null
@@ -18,21 +18,21 @@ export function createSystemTray(callbacks = {}) {
   // Create context menu
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show Chat',
+      label: "Show Chat",
       click: () => {
         if (onShowChat) onShowChat()
       }
     },
-    { type: 'separator' },
+    { type: "separator" },
     {
-      label: 'Settings',
+      label: "Settings",
       click: () => {
         if (onOpenSettings) onOpenSettings()
       }
     },
-    { type: 'separator' },
+    { type: "separator" },
     {
-      label: 'Quit',
+      label: "Quit",
       click: () => {
         if (onQuit) {
           onQuit()
@@ -44,9 +44,9 @@ export function createSystemTray(callbacks = {}) {
   ])
 
   tray.setContextMenu(contextMenu)
-  tray.setToolTip('AI Assistant')
+  tray.setToolTip("AI Assistant")
 
-  console.log('System tray created')
+  console.log("System tray created")
   return tray
 }
 

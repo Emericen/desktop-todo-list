@@ -1,13 +1,13 @@
-import { useEffect, useCallback, useRef } from 'react'
-import QueryBar from '@/components/QueryBar'
-import useStore from '@/store/useStore'
+import { useEffect, useCallback, useRef } from "react"
+import QueryBar from "@/components/QueryBar"
+import useStore from "@/store/useStore"
 import {
   UserMessage,
   TextMessage,
   ImageMessage,
   ChoiceMessage,
   LoadingMessage
-} from '@/components/Messages'
+} from "@/components/Messages"
 
 export default function ChatWindow() {
   const messages = useStore((s) => s.messages)
@@ -23,7 +23,7 @@ export default function ChatWindow() {
   }, [loadSettings])
 
   const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [])
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function ChatWindow() {
       {/* Fixed header always visible */}
       <div
         className="fixed top-0 left-0 right-0 h-6 flex items-center pl-2 select-none text-xs text-muted-foreground z-50 bg-background border-b border-border"
-        style={{ WebkitAppRegion: 'drag' }}
+        style={{ WebkitAppRegion: "drag" }}
       >
         {`Press ${shortcut} to toggle`}
       </div>
@@ -47,13 +47,13 @@ export default function ChatWindow() {
             <div className="space-y-6">
               {messages.map((message, index) => {
                 switch (message.type) {
-                  case 'user':
+                  case "user":
                     return <UserMessage key={index} message={message} />
-                  case 'image':
+                  case "image":
                     return <ImageMessage key={index} message={message} />
-                  case 'loading':
+                  case "loading":
                     return <LoadingMessage key={index} />
-                  case 'confirmation':
+                  case "confirmation":
                     return (
                       <ChoiceMessage
                         key={index}

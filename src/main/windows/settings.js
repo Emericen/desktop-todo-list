@@ -1,6 +1,6 @@
-import { BrowserWindow, screen, nativeImage } from 'electron'
-import { join } from 'path'
-import { is } from '@electron-toolkit/utils'
+import { BrowserWindow, screen, nativeImage } from "electron"
+import { join } from "path"
+import { is } from "@electron-toolkit/utils"
 
 // ========== SETTINGS WINDOW STATE ==========
 let settingsWindow = null
@@ -33,27 +33,27 @@ export function createSettingsWindow() {
     y: Math.round((screenHeight - windowHeight) / 2),
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon: whiteIcon } : {}),
+    ...(process.platform === "linux" ? { icon: whiteIcon } : {}),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, "../preload/index.js"),
       sandbox: false
     }
   })
 
-  settingsWindow.on('ready-to-show', () => {
+  settingsWindow.on("ready-to-show", () => {
     settingsWindow.show()
   })
 
-  settingsWindow.on('closed', () => {
+  settingsWindow.on("closed", () => {
     settingsWindow = null
   })
 
   // Load renderer with query param
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    settingsWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}?w=settings`)
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    settingsWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}?w=settings`)
   } else {
-    settingsWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-      search: '?w=settings'
+    settingsWindow.loadFile(join(__dirname, "../renderer/index.html"), {
+      search: "?w=settings"
     })
   }
 

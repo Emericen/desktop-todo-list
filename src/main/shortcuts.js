@@ -1,4 +1,4 @@
-import { globalShortcut } from 'electron'
+import { globalShortcut } from "electron"
 
 // ===== Shortcut registry =====
 const registered = new Map() // accelerator → callback
@@ -12,7 +12,7 @@ export function registerShortcuts(shortcutMap = {}) {
   unregisterAllShortcuts()
 
   Object.entries(shortcutMap).forEach(([accelerator, handler]) => {
-    if (accelerator && typeof handler === 'function') {
+    if (accelerator && typeof handler === "function") {
       const ok = globalShortcut.register(accelerator, handler)
       if (ok) {
         registered.set(accelerator, handler)

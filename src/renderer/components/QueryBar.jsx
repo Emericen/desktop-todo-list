@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { useState, useEffect, useRef } from "react"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
-import { Mic, MicOff, Send, ChevronUp } from 'lucide-react'
-import useStore from '@/store/useStore'
+} from "@/components/ui/dropdown-menu"
+import { Mic, MicOff, Send, ChevronUp, Loader2 } from "lucide-react"
+import useStore from "@/store/useStore"
 
 export default function QueryBar() {
   const isTranscribing = useStore((s) => s.isTranscribing)
@@ -19,7 +19,10 @@ export default function QueryBar() {
   const selectedModel = useStore((s) => s.selectedModel)
   const setSelectedModel = useStore((s) => s.setSelectedModel)
   const models = useStore((s) => s.models)
-  const [input, setInput] = useState('')
+  const toggleTranscription = useStore((s) => s.toggleTranscription)
+  const setTranscriptionCallback = useStore((s) => s.setTranscriptionCallback)
+  const isProcessingAudio = useStore((s) => s.isProcessingAudio)
+  const [input, setInput] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const textareaRef = useRef(null)
 
@@ -27,7 +30,7 @@ export default function QueryBar() {
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current
     if (textarea) {
-      textarea.style.height = 'auto'
+      textarea.style.height = "auto"
       const newHeight = Math.min(textarea.scrollHeight, 150) // Max 150px
       textarea.style.height = `${newHeight}px`
     }
@@ -39,7 +42,7 @@ export default function QueryBar() {
 
   // Focus textarea when renderer receives focus request from main process
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.api?.onFocusQueryInput) {
+    if (typeof window !== "undefined" && window.api?.onFocusQueryInput) {
       window.api.onFocusQueryInput(() => {
         textareaRef.current?.focus()
       })
@@ -49,17 +52,29 @@ export default function QueryBar() {
     textareaRef.current?.focus()
   }, [])
 
+  // Set up transcription callback
+  useEffect(() => {
+    setTranscriptionCallback((transcribedText) => {
+      setInput((prev) => prev + transcribedText)
+      textareaRef.current?.focus()
+    })
+  }, [setTranscriptionCallback])
+
+  const handleTranscribe = () => {
+    toggleTranscription()
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!input.trim() || isSubmitting) return
 
     const messageText = input.trim()
-    setInput('')
+    setInput("")
     setIsSubmitting(true)
 
     try {
       // Handle local clear command
-      if (messageText === '/clear') {
+      if (messageText === "/clear") {
         clearMessages()
         setIsSubmitting(false)
         return
@@ -67,7 +82,7 @@ export default function QueryBar() {
 
       submitQuery(messageText)
     } catch (error) {
-      console.error('Error submitting message:', error)
+      console.error("Error submitting message:", error)
       setInput(messageText) // Restore input on error
     } finally {
       setIsSubmitting(false)
@@ -75,14 +90,10 @@ export default function QueryBar() {
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSubmit(e)
     }
-  }
-
-  const handleTranscribe = () => {
-    setIsTranscribing(!isTranscribing)
   }
 
   return (
@@ -99,23 +110,23 @@ export default function QueryBar() {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isTranscribing
-                    ? 'Transcribing... speak clearly'
+                    ? "Transcribing... speak clearly"
                     : awaitingUserResponse
-                    ? 'Press Enter to confirm or Esc to cancel'
-                    : 'What can I do for you?'
+                    ? "Press Enter to confirm or Esc to cancel"
+                    : "What can I do for you?"
                 }
                 className={`w-full min-h-[24px] max-h-[150px] resize-none border-none outline-none bg-transparent text-left overflow-y-auto ${
-                  isTranscribing ? 'text-muted-foreground' : ''
+                  isTranscribing ? "text-muted-foreground" : ""
                 }`}
-                disabled={isTranscribing || awaitingUserResponse}
+                disabled={awaitingUserResponse || isProcessingAudio}
                 spellCheck="false"
                 autoCorrect="off"
                 autoCapitalize="off"
                 autoComplete="off"
                 rows={1}
                 style={{
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#cbd5e1 transparent'
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#cbd5e1 transparent"
                 }}
               />
             </div>
@@ -159,15 +170,23 @@ export default function QueryBar() {
               <div className="flex gap-1">
                 <Button
                   type="button"
-                  variant={isTranscribing ? 'destructive' : 'ghost'}
+                  variant={isTranscribing ? "destructive" : "ghost"}
                   size="sm"
                   className="h-7 w-7 p-0"
                   onClick={handleTranscribe}
-                  disabled={isTranscribing || awaitingUserResponse}
-                  title={isTranscribing ? 'Stop recording' : 'Start recording'}
+                  disabled={awaitingUserResponse || isProcessingAudio}
+                  title={
+                    isTranscribing
+                      ? "Stop recording"
+                      : isProcessingAudio
+                      ? "Processing"
+                      : "Start recording"
+                  }
                 >
                   {isTranscribing ? (
                     <MicOff className="h-3.5 w-3.5" />
+                  ) : isProcessingAudio ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Mic className="h-3.5 w-3.5" />
                   )}
@@ -180,6 +199,7 @@ export default function QueryBar() {
                   className="h-7 w-7 p-0 bg-primary hover:bg-primary/90"
                   disabled={
                     isTranscribing ||
+                    isProcessingAudio ||
                     !input.trim() ||
                     awaitingUserResponse ||
                     isSubmitting

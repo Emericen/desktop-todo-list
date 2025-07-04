@@ -1,12 +1,12 @@
-import React from 'react'
-import { Button } from '@/components/ui/button'
+import React from "react"
+import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger
-} from '@/components/ui/tooltip'
-import { Copy, ThumbsUp, ThumbsDown, Volume2 } from 'lucide-react'
+} from "@/components/ui/tooltip"
+import { Copy, ThumbsUp, ThumbsDown, Volume2 } from "lucide-react"
 
 const ResponseActions = ({
   showCopy = true,
@@ -14,23 +14,23 @@ const ResponseActions = ({
   showThumbsDown = true,
   showReadAloud = true,
   onAction,
-  content = ''
+  content = ""
 }) => {
   const handleCopy = () => {
     navigator.clipboard.writeText(content)
-    onAction?.('copy', content)
+    onAction?.("copy", content)
   }
 
   const handleThumbsUp = () => {
-    onAction?.('thumbs_up')
+    onAction?.("thumbs_up")
   }
 
   const handleThumbsDown = () => {
-    onAction?.('thumbs_down')
+    onAction?.("thumbs_down")
   }
 
   const handleReadAloud = () => {
-    onAction?.('read_aloud', content)
+    onAction?.("read_aloud", content)
   }
 
   return (

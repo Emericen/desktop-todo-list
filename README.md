@@ -45,14 +45,16 @@ MOCK_MODE=true
 ```
 
 Mock mode allows you to:
+
 - **Focus on UX** - Perfect the entire user experience without AI complexity
-- **Develop offline** - Work without internet or GPU server access  
+- **Develop offline** - Work without internet or GPU server access
 - **Test deterministically** - Same responses every time for reliable testing
 - **Iterate faster** - No waiting for AI responses
 
 ### Creating Mock Data
 
 1. **Record coordinates** from your desktop:
+
    ```bash
    cd experiments
    python s2_record_click.py
@@ -63,7 +65,7 @@ Mock mode allows you to:
    {
      "responses": [
        {
-         "role": "assistant", 
+         "role": "assistant",
          "content": "Thought: I'll click on the file.\nAction: click(start_box='<|box_start|>(855, 618)<|box_end|>')"
        }
      ]

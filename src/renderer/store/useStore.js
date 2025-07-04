@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create } from "zustand"
 
 // Global UI store (frontend-only)
 // Holds non-persistent app state such as theme, in-app shortcuts, chat messages, etc.
@@ -9,11 +9,14 @@ const useStore = create((set, get) => ({
   messages: [],
   isTranscribing: false,
   awaitingUserResponse: false,
-  selectedModel: 'claude-4-sonnet',
+  selectedModel: "claude-4-sonnet",
   models: [
-    { id: 'claude-4-sonnet', name: 'Claude 4 Sonnet' }
+    { id: "claude-4-sonnet", name: "Claude 4 Sonnet" }
     // { id: "O3", name: "O3" },
   ],
+
+  // New flag to indicate audio is being processed by API
+  isProcessingAudio: false,
 
   // Load settings from main process
   loadSettings: async () => {
@@ -23,7 +26,7 @@ const useStore = create((set, get) => ({
         set({ settings })
       }
     } catch (error) {
-      console.error('Failed to load settings:', error)
+      console.error("Failed to load settings:", error)
     }
   },
 
@@ -40,7 +43,7 @@ const useStore = create((set, get) => ({
       // };
       if (
         state.messages.length !== 0 &&
-        state.messages[state.messages.length - 1].type === 'image'
+        state.messages[state.messages.length - 1].type === "image"
       ) {
         return {
           messages: [...state.messages.slice(0, -1), message]
@@ -61,7 +64,7 @@ const useStore = create((set, get) => ({
 
     // Add user message to state first
     const userMessage = {
-      type: 'user',
+      type: "user",
       content: query,
       timestamp: new Date()
     }
@@ -69,8 +72,8 @@ const useStore = create((set, get) => ({
 
     // Add loading message that we'll replace with actual content
     const loadingMessage = {
-      type: 'loading',
-      content: '',
+      type: "loading",
+      content: "",
       timestamp: new Date()
     }
     get().addMessage(loadingMessage)
@@ -93,7 +96,7 @@ const useStore = create((set, get) => ({
               const updatedMessages = [...state.messages]
               updatedMessages[messageIndex] = {
                 ...updatedMessages[messageIndex],
-                type: 'text',
+                type: "text",
                 content: chunk
               }
               return { messages: updatedMessages }
@@ -113,7 +116,7 @@ const useStore = create((set, get) => ({
         }
       )
     } catch (error) {
-      console.error('Streaming error:', error)
+      console.error("Streaming error:", error)
 
       // Update the loading message with error
       set((state) => {
@@ -121,7 +124,7 @@ const useStore = create((set, get) => ({
         const messageIndex = updatedMessages.length - 1
         updatedMessages[messageIndex] = {
           ...updatedMessages[messageIndex],
-          type: 'text',
+          type: "text",
           content: `Error: ${error}`
         }
         return { messages: updatedMessages }
@@ -129,13 +132,109 @@ const useStore = create((set, get) => ({
     }
   },
 
-  setSelectedModel: (model) => set({ selectedModel: model })
+  setSelectedModel: (model) => set({ selectedModel: model }),
+
+  // Transcription state
+  mediaRecorder: null,
+  audioChunks: [],
+  transcriptionCallback: null,
+
+  // Transcription actions
+  startTranscription: async () => {
+    set({ isTranscribing: true, isProcessingAudio: false })
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+
+      set({ mediaRecorder, audioChunks: [] })
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          set((state) => ({ audioChunks: [...state.audioChunks, event.data] }))
+        }
+      }
+
+      mediaRecorder.onstop = async () => {
+        const { audioChunks } = get()
+        const audioBlob = new Blob(audioChunks, { type: "audio/webm" })
+
+        // Convert to base64 using browser FileReader API
+        const base64Audio = await new Promise((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result.split(",")[1])
+          reader.readAsDataURL(audioBlob)
+        })
+
+        // Send to main process for transcription
+        try {
+          // flag while waiting response
+          set({ isProcessingAudio: true })
+          const result = await window.api.transcribeAudio({
+            audio: base64Audio,
+            filename: "recording.webm"
+          })
+
+          if (result.success) {
+            // Call the callback if provided
+            const { transcriptionCallback } = get()
+            if (transcriptionCallback) {
+              transcriptionCallback(result.text.trim())
+            }
+          } else {
+            console.error("Transcription failed:", result.error)
+          }
+        } catch (error) {
+          console.error("Transcription error:", error)
+        }
+
+        // Clean up & reset flags
+        stream.getTracks().forEach((track) => track.stop())
+        set({
+          isTranscribing: false,
+          isProcessingAudio: false,
+          mediaRecorder: null,
+          audioChunks: []
+        })
+      }
+
+      mediaRecorder.start()
+    } catch (error) {
+      console.error("Error accessing microphone:", error)
+      set({ isTranscribing: false })
+    }
+  },
+
+  stopTranscription: () => {
+    const { mediaRecorder } = get()
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      // Immediately mark as stopped recording and processing started
+      set({ isTranscribing: false, isProcessingAudio: true })
+      mediaRecorder.stop()
+    }
+  },
+
+  toggleTranscription: async () => {
+    const { isTranscribing } = get()
+    if (isTranscribing) {
+      get().stopTranscription()
+    } else {
+      await get().startTranscription()
+    }
+  },
+
+  setTranscriptionCallback: (callback) => {
+    set({ transcriptionCallback: callback })
+  },
+
+  // Added setter for processing flag
+  setIsProcessingAudio: (val) => set({ isProcessingAudio: val })
 }))
 
 // Attach backend-push listener globally once store is defined
-if (typeof window !== 'undefined' && window.api?.onPush) {
+if (typeof window !== "undefined" && window.api?.onPush) {
   window.api.onPush((payload) => {
-    console.log('payload', payload)
+    console.log("payload", payload)
     const message = {
       type: payload.type,
       content: payload.content,
@@ -143,7 +242,7 @@ if (typeof window !== 'undefined' && window.api?.onPush) {
     }
 
     // Handle different message types for screenshot flow
-    if (payload.type === 'image') {
+    if (payload.type === "image") {
       useStore.getState().replaceLastImageMessage(message)
     } else {
       useStore.getState().addMessage(message)

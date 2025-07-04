@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Check, X } from 'lucide-react'
-import useStore from '@/store/useStore'
-import ReactMarkdown from 'react-markdown'
+import React, { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Check, X } from "lucide-react"
+import useStore from "@/store/useStore"
+import ReactMarkdown from "react-markdown"
 
 export function UserMessage({ message }) {
   return (
@@ -90,7 +90,7 @@ export function ChoiceMessage({ message, index }) {
   return (
     <div
       className={`w-full ${
-        message.answered ? 'opacity-50' : ''
+        message.answered ? "opacity-50" : ""
       } transition-opacity duration-200`}
     >
       <blockquote className="border-l-2 pl-4 py-2">
@@ -101,12 +101,12 @@ export function ChoiceMessage({ message, index }) {
           <div className="flex gap-2 items-center">
             <div
               className={`flex items-center mr-2 w-4 ${
-                message.answered ? 'visible' : 'invisible'
+                message.answered ? "visible" : "invisible"
               }`}
             >
-              {message.answered === 'approved' ? (
+              {message.answered === "approved" ? (
                 <Check className="h-4 w-4 text-green-600" />
-              ) : message.answered === 'rejected' ? (
+              ) : message.answered === "rejected" ? (
                 <X className="h-4 w-4 text-red-600" />
               ) : (
                 <div className="h-4 w-4" />
@@ -115,7 +115,7 @@ export function ChoiceMessage({ message, index }) {
             <Button
               size="sm"
               variant="default"
-              onClick={() => selectChoice(index, 'approved')}
+              onClick={() => selectChoice(index, "approved")}
               disabled={message.answered !== null}
               className="h-8 px-4"
             >
@@ -124,7 +124,7 @@ export function ChoiceMessage({ message, index }) {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => selectChoice(index, 'rejected')}
+              onClick={() => selectChoice(index, "rejected")}
               disabled={message.answered !== null}
               className="h-8 px-4"
             >
@@ -138,14 +138,14 @@ export function ChoiceMessage({ message, index }) {
 }
 
 export function LoadingMessage() {
-  const [dots, setDots] = useState('.')
+  const [dots, setDots] = useState(".")
 
   useEffect(() => {
     const interval = setInterval(() => {
       setDots((prev) => {
-        if (prev === '.') return '..'
-        if (prev === '..') return '...'
-        return '.'
+        if (prev === ".") return ".."
+        if (prev === "..") return "..."
+        return "."
       })
     }, 500)
 

@@ -1,5 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
-import dotenv from 'dotenv'
+import Anthropic from "@anthropic-ai/sdk"
+import dotenv from "dotenv"
 
 // Load environment variables
 dotenv.config()
@@ -14,45 +14,45 @@ export async function sendQuery(payload, onChunk) {
   try {
     // Log request with truncated base64 strings
     console.log(
-      'sending to anthropic:',
+      "sending to anthropic:",
       JSON.stringify(truncateBase64(messages), null, 2)
     )
 
     if (onChunk) {
       // Use streaming for real-time response
       const stream = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: "claude-sonnet-4-20250514",
         max_tokens: 1024,
         messages: messages,
         stream: true
       })
 
-      let fullResponse = ''
+      let fullResponse = ""
 
       for await (const chunk of stream) {
-        if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+        if (chunk.type === "content_block_delta" && chunk.delta?.text) {
           const text = chunk.delta.text
           fullResponse += text
           onChunk(text)
         }
       }
 
-      return { type: 'text', data: fullResponse }
+      return { type: "text", data: fullResponse }
     } else {
       // Non-streaming response
       const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: "claude-sonnet-4-20250514",
         max_tokens: 1024,
         messages: messages
       })
 
-      const response = message.content[0]?.text || ''
-      return { type: 'text', data: response }
+      const response = message.content[0]?.text || ""
+      return { type: "text", data: response }
     }
   } catch (error) {
-    console.error('Anthropic API Error:', error)
+    console.error("Anthropic API Error:", error)
     return {
-      type: 'text',
+      type: "text",
       data: `Error calling Anthropic API: ${error.message}`
     }
   }
@@ -61,25 +61,33 @@ export async function sendQuery(payload, onChunk) {
 // Convert full length base64 to `qweasd[...][chars]` for logging & debugging
 function truncateBase64(obj) {
   // Case 1: raw data URL string
-  if (typeof obj === 'string' && obj.startsWith('data:image/')) {
-    const [header, data] = obj.split(',')
+  if (typeof obj === "string" && obj.startsWith("data:image/")) {
+    const [header, data] = obj.split(",")
     return `${header},${data.substring(0, 20)}...${data.substring(
       data.length - 10
     )} [${data.length} chars]`
   }
 
   // Case 2: very long plain base-64 string (heuristic: >100 chars & only base64 chars)
-  if (typeof obj === 'string' && obj.length > 100 && /^[A-Za-z0-9+/=]+$/.test(obj)) {
-    return `${obj.substring(0, 20)}...${obj.substring(obj.length - 10)} [${obj.length} chars]`
+  if (
+    typeof obj === "string" &&
+    obj.length > 100 &&
+    /^[A-Za-z0-9+/=]+$/.test(obj)
+  ) {
+    return `${obj.substring(0, 20)}...${obj.substring(obj.length - 10)} [${
+      obj.length
+    } chars]`
   }
 
   // Case 3: object with { type: 'base64', data: '...' }
-  if (obj && typeof obj === 'object') {
-    if (obj.type === 'base64' && typeof obj.data === 'string') {
+  if (obj && typeof obj === "object") {
+    if (obj.type === "base64" && typeof obj.data === "string") {
       const data = obj.data
       return {
         ...obj,
-        data: `${data.substring(0, 20)}...${data.substring(data.length - 10)} [${data.length} chars]`
+        data: `${data.substring(0, 20)}...${data.substring(
+          data.length - 10
+        )} [${data.length} chars]`
       }
     }
 
@@ -98,26 +106,26 @@ function truncateBase64(obj) {
 
 function convertToAnthropicMessage(messages) {
   const messageConverters = {
-    user: (msg) => ({ role: 'user', content: msg.content }),
-    text: (msg) => ({ role: 'assistant', content: msg.content }),
+    user: (msg) => ({ role: "user", content: msg.content }),
+    text: (msg) => ({ role: "assistant", content: msg.content }),
     image: (msg) => {
       let base64Data = msg.content
-      let mediaType = 'image/jpeg'
+      let mediaType = "image/jpeg"
 
-      if (msg.content.startsWith('data:image/')) {
-        const [header, data] = msg.content.split(',')
+      if (msg.content.startsWith("data:image/")) {
+        const [header, data] = msg.content.split(",")
         base64Data = data
         const mtMatch = header.match(/data:(.*);base64/)
         if (mtMatch) mediaType = mtMatch[1]
       }
 
       return {
-        role: 'user',
+        role: "user",
         content: [
           {
-            type: 'image',
+            type: "image",
             source: {
-              type: 'base64',
+              type: "base64",
               media_type: mediaType,
               data: base64Data
             }
