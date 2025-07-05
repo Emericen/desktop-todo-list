@@ -235,17 +235,9 @@ const useStore = create((set, get) => ({
 if (typeof window !== "undefined" && window.api?.onPush) {
   window.api.onPush((payload) => {
     console.log("payload", payload)
-    const message = {
-      type: payload.type,
-      content: payload.content,
-      timestamp: new Date()
-    }
-
-    // Handle different message types for screenshot flow
-    if (payload.type === "image") {
+    if (payload.type && payload.type === "image") {
+      const message = { ...payload }
       useStore.getState().replaceLastImageMessage(message)
-    } else {
-      useStore.getState().addMessage(message)
     }
   })
 }

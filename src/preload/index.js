@@ -3,18 +3,18 @@ import { electronAPI } from "@electron-toolkit/preload"
 
 // Custom APIs for renderer
 const api = {
-  // Send a streaming query with chunk callback
-  sendQuery: (payload, onChunk) => {
+  // Send a streaming query with response token callback
+  sendQuery: (payload, onResponseToken) => {
     console.log("sendQuery", payload)
-    if (onChunk) {
-      // Listen for chunks
-      const handleChunk = (_e, chunk) => onChunk(chunk)
-      ipcRenderer.on("query-chunk", handleChunk)
+    if (onResponseToken) {
+      // Listen for response tokens
+      const handleToken = (_e, token) => onResponseToken(token)
+      ipcRenderer.on("token", handleToken)
 
       // Send the query
       return ipcRenderer.invoke("query", payload).then((result) => {
         // Clean up listener when done
-        ipcRenderer.removeListener("query-chunk", handleChunk)
+        ipcRenderer.removeListener("token", handleToken)
         return result
       })
     } else {
@@ -22,9 +22,6 @@ const api = {
       return ipcRenderer.invoke("query", payload)
     }
   },
-
-  // Send an OS-level action and await its JSON result
-  sendAction: (payload) => ipcRenderer.invoke("action", payload),
 
   // Get current settings from main process
   getSettings: () => ipcRenderer.invoke("get-settings"),

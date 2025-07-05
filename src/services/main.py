@@ -63,6 +63,143 @@ def click_mouse():
     return jsonify({"message": "ok"}), 200
 
 
+@app.route("/left_click", methods=["POST"])
+def left_click():
+    data = request.get_json()
+    mouse_controller.position = (data["x"], data["y"])
+    mouse_controller.click(mouse.Button.left)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/right_click", methods=["POST"])
+def right_click():
+    data = request.get_json()
+    mouse_controller.position = (data["x"], data["y"])
+    mouse_controller.click(mouse.Button.right)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/middle_click", methods=["POST"])
+def middle_click():
+    data = request.get_json()
+    mouse_controller.position = (data["x"], data["y"])
+    mouse_controller.click(mouse.Button.middle)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/double_click", methods=["POST"])
+def double_click():
+    data = request.get_json()
+    mouse_controller.position = (data["x"], data["y"])
+    mouse_controller.click(mouse.Button.left, 2)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/triple_click", methods=["POST"])
+def triple_click():
+    data = request.get_json()
+    mouse_controller.position = (data["x"], data["y"])
+    mouse_controller.click(mouse.Button.left, 3)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/left_mouse_down", methods=["POST"])
+def left_mouse_down():
+    data = request.get_json()
+    mouse_controller.position = (data["x"], data["y"])
+    mouse_controller.press(mouse.Button.left)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/left_mouse_up", methods=["POST"])
+def left_mouse_up():
+    data = request.get_json()
+    mouse_controller.position = (data["x"], data["y"])
+    mouse_controller.release(mouse.Button.left)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/left_click_drag", methods=["POST"])
+def left_click_drag():
+    data = request.get_json()
+    mouse_controller.position = (data["x1"], data["y1"])
+    mouse_controller.press(mouse.Button.left)
+    mouse_controller.position = (data["x2"], data["y2"])
+    mouse_controller.release(mouse.Button.left)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/key", methods=["POST"])
+def press_key():
+    data = request.get_json()
+    key_str = data["key"]
+
+    # Handle special key combinations
+    if "+" in key_str:
+        keys = key_str.split("+")
+        # Press modifier keys first
+        for key in keys[:-1]:
+            keyboard_controller.press(
+                getattr(keyboard.Key, key.lower(), keyboard.KeyCode.from_char(key))
+            )
+        # Press main key
+        main_key = keys[-1]
+        keyboard_controller.press(
+            getattr(
+                keyboard.Key, main_key.lower(), keyboard.KeyCode.from_char(main_key)
+            )
+        )
+        # Release in reverse order
+        keyboard_controller.release(
+            getattr(
+                keyboard.Key, main_key.lower(), keyboard.KeyCode.from_char(main_key)
+            )
+        )
+        for key in reversed(keys[:-1]):
+            keyboard_controller.release(
+                getattr(keyboard.Key, key.lower(), keyboard.KeyCode.from_char(key))
+            )
+    else:
+        # Single key press
+        key_obj = getattr(
+            keyboard.Key, key_str.lower(), keyboard.KeyCode.from_char(key_str)
+        )
+        keyboard_controller.press(key_obj)
+        keyboard_controller.release(key_obj)
+
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/hold_key", methods=["POST"])
+def hold_key():
+    data = request.get_json()
+    key_str = data["key"]
+    key_obj = getattr(
+        keyboard.Key, key_str.lower(), keyboard.KeyCode.from_char(key_str)
+    )
+    keyboard_controller.press(key_obj)
+    return jsonify({"message": "ok"}), 200
+
+
+@app.route("/scroll", methods=["POST"])
+def scroll():
+    data = request.get_json()
+    mouse_controller.position = (data["x"], data["y"])
+    direction = data["direction"]
+    amount = data.get("amount", 1)
+
+    if direction == "up":
+        mouse_controller.scroll(0, amount)
+    elif direction == "down":
+        mouse_controller.scroll(0, -amount)
+    elif direction == "left":
+        mouse_controller.scroll(-amount, 0)
+    elif direction == "right":
+        mouse_controller.scroll(amount, 0)
+
+    return jsonify({"message": "ok"}), 200
+
+
 @app.route("/type", methods=["POST"])
 def type_text():
     data = request.get_json()

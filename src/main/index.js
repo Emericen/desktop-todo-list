@@ -9,18 +9,11 @@ import {
 } from "./windows/chat.js"
 import { createSettingsWindow } from "./windows/settings.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
-import {
-  start as startOSClient,
-  stop as stopOSClient,
-  takeScreenshot,
-  moveMouse,
-  clickMouse,
-  typeText,
-  echo
-} from "./clients/os.js"
-import { sendQuery } from "./clients/anthropic.js"
-import { transcribeAudio } from "./clients/openai.js"
+import OSClient from "./clients/os.js"
+import AnthropicClient from "./clients/anthropic.js"
+import OpenAIClient from "./clients/openai.js"
 import { registerShortcuts, unregisterAllShortcuts } from "./shortcuts.js"
+import Agent from "./clients/agent.js"
 
 // Load environment variables
 dotenv.config()
@@ -39,15 +32,23 @@ app.whenReady().then(() => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-      createChatWindow({ takeScreenshot })
+      createChatWindow({ takeScreenshot: () => osClient.takeScreenshot() })
     }
   })
 
   // Register global shortcuts (can later be loaded from settings)
   registerShortcuts({ "Alt+P": toggleChatWindow })
 
-  // Start OS helper service (Flask)
-  startOSClient()
+  // Create and start OS client
+  const osClient = new OSClient()
+  osClient.start()
+
+  // Initialize clients
+  const anthropicClient = new AnthropicClient()
+  const openaiClient = new OpenAIClient()
+
+  // Initialize Agent with OS client
+  const agent = new Agent(osClient)
 
   // Default open or close DevTools by F12 in development
   app.on("browser-window-created", (_, window) => {
@@ -70,41 +71,27 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle("query", async (event, payload) => {
-    const onChunk = (chunk) => {
-      // Send chunk to renderer via the same event sender
-      event.sender.send("query-chunk", chunk)
+    const pushResponseEvent = (chunk) => {
+      event.sender.send("token", chunk)
     }
 
-    return await sendQuery(payload, onChunk)
-  })
-
-  ipcMain.handle("action", async (_event, payload) => {
-    console.log("action", payload)
-    switch (payload.type) {
-      case "move_mouse":
-        return moveMouse(payload.x, payload.y)
-      case "click_mouse":
-        return clickMouse()
-      case "type_text":
-        return typeText(payload.text)
-      case "screenshot":
-        // NOTE: This returns base64 encoded image string in json response.
-        // If screenshot become frequent and images become large,
-        // save the image to a temp file and return the path instead.
-        return takeScreenshot()
-      default:
-        return { error: "unknown action" }
+    // TODO: TOGGLE AGENT FLAG
+    const useAgent = true
+    if (useAgent) {
+      return await agent.run(payload.messages, pushResponseEvent)
+    } else {
+      return await anthropicClient.sendQuery(payload, sendResponseToken)
     }
   })
 
   ipcMain.handle("transcribe", async (_event, payload) => {
     console.log("transcribe audio")
     const audioBuffer = Buffer.from(payload.audio, "base64")
-    return await transcribeAudio(audioBuffer, payload.filename)
+    return await openaiClient.transcribeAudio(audioBuffer, payload.filename)
   })
 
   // ========= WINDOWS AND TRAY =========
-  createChatWindow({ takeScreenshot })
+  createChatWindow({ takeScreenshot: () => osClient.takeScreenshot() })
   createSystemTray({
     onShowChat: () => showChatWindow(true),
     onOpenSettings: () => createSettingsWindow(),
@@ -113,7 +100,7 @@ app.whenReady().then(() => {
 
   // ========= APP CLEANUP =========
   app.on("before-quit", () => {
-    stopOSClient()
+    osClient.stop()
   })
 
   app.on("will-quit", () => {

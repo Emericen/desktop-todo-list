@@ -59,10 +59,7 @@ export function createChatWindow(callbacks = {}) {
   chatWindow.setAlwaysOnTop(true, "screen-saver")
   chatWindow.setVisibleOnAllWorkspaces(true)
 
-  chatWindow.on("ready-to-show", () => {
-    chatWindow.show()
-    chatWindow.webContents.send("focus-query-input")
-  })
+  chatWindow.on("ready-to-show", toggleChatWindow)
 
   // Auto-hide chat when it loses focus (user clicked elsewhere)
   chatWindow.on("blur", () => {
@@ -81,6 +78,51 @@ export function createChatWindow(callbacks = {}) {
   }
 
   return chatWindow
+}
+
+export function toggleChatWindow() {
+  if (chatWindow) {
+    if (chatWindow.isVisible()) {
+      hideChatWindow()
+    } else {
+      if (takeScreenshotFn) {
+        takeScreenshotFn()
+          .then((res) => {
+            if (res && res.image) {
+              const imagePayload = {
+                type: "image",
+                content: `data:image/jpeg;base64,${res.image}`,
+                width: res.width,
+                height: res.height
+              }
+
+              const sendMessages = () => {
+                chatWindow.webContents.send("backend-push", imagePayload)
+              }
+
+              // If this is the very first load we may need to wait until DOM is ready
+              if (chatWindow.webContents.isLoading()) {
+                chatWindow.webContents.once("dom-ready", sendMessages)
+              } else {
+                sendMessages()
+              }
+            } else {
+              console.log("no image in screenshot response")
+            }
+          })
+          .catch(() => {
+            console.log("error in screenshot flow")
+          })
+          .finally(() => {
+            // Ensure window is shown even if screenshot failed
+            showChatWindow(true)
+          })
+      } else {
+        console.log("no screenshot fn")
+        showChatWindow(true)
+      }
+    }
+  }
 }
 
 export function showChatWindow(shouldFocus = false) {
@@ -118,49 +160,6 @@ export function hideChatWindow() {
       if (process.platform === "darwin") {
         const { app } = require("electron")
         app.hide()
-      }
-    }
-  }
-}
-
-export function toggleChatWindow() {
-  if (chatWindow) {
-    if (chatWindow.isVisible()) {
-      hideChatWindow()
-    } else {
-      if (takeScreenshotFn) {
-        takeScreenshotFn()
-          .then((res) => {
-            if (res && res.image) {
-              const imagePayload = {
-                type: "image",
-                content: `data:image/jpeg;base64,${res.image}`
-              }
-
-              const sendMessages = () => {
-                chatWindow.webContents.send("backend-push", imagePayload)
-              }
-
-              // If this is the very first load we may need to wait until DOM is ready
-              if (chatWindow.webContents.isLoading()) {
-                chatWindow.webContents.once("dom-ready", sendMessages)
-              } else {
-                sendMessages()
-              }
-            } else {
-              console.log("no image in screenshot response")
-            }
-          })
-          .catch(() => {
-            console.log("error in screenshot flow")
-          })
-          .finally(() => {
-            // Ensure window is shown even if screenshot failed
-            showChatWindow(true)
-          })
-      } else {
-        console.log("no screenshot fn")
-        showChatWindow(true)
       }
     }
   }
