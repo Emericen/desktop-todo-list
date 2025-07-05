@@ -1,5 +1,5 @@
 import numpy as np
-import cv2
+from PIL import Image
 import mss
 import os
 import time
@@ -10,14 +10,13 @@ time.sleep(3)
 sct = mss.mss()
 
 raw = sct.grab(sct.monitors[1])
-# 2. wrap BGRA → BGR ndarray (no copy)
-frame_bgr = np.frombuffer(raw.rgb, dtype=np.uint8).reshape(
-    raw.height, raw.width, 3
-)
-# 3. convert BGR to RGB for web display
-frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-# 4. encode to JPEG (quality 80)
-ok, jpg = cv2.imencode(".jpg", frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 80])
+# Convert to PIL Image
+img = Image.frombytes("RGB", raw.size, raw.bgra, "raw", "BGRX")
+
+# Resize to below 720p while maintaining aspect ratio
+max_width, max_height = 1280, 720
+if img.width > max_width or img.height > max_height:
+    img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
 
 # Save to desktop
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -25,8 +24,7 @@ timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 filename = f"screenshot_{timestamp}.jpg"
 filepath = os.path.join(desktop_path, filename)
 
-with open(filepath, "wb") as f:
-    f.write(jpg.tobytes())
+img.save(filepath, "JPEG", quality=80)
 
 print(f"Screenshot saved to: {filepath}")
-
+print(f"Final dimensions: {img.width}x{img.height}")
