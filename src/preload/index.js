@@ -3,18 +3,18 @@ import { electronAPI } from "@electron-toolkit/preload"
 
 // Custom APIs for renderer
 const api = {
-  // Send a streaming query with response token callback
-  sendQuery: (payload, onResponseToken) => {
+  // Send a streaming query with agent event callback
+  sendQuery: (payload, onAgentEvent) => {
     console.log("sendQuery", payload)
-    if (onResponseToken) {
-      // Listen for response tokens
-      const handleToken = (_e, token) => onResponseToken(token)
-      ipcRenderer.on("token", handleToken)
+    if (onAgentEvent) {
+      // Listen for agent events
+      const handleAgentEvent = (_e, eventData) => onAgentEvent(eventData)
+      ipcRenderer.on("response-event", handleAgentEvent)
 
       // Send the query
       return ipcRenderer.invoke("query", payload).then((result) => {
         // Clean up listener when done
-        ipcRenderer.removeListener("token", handleToken)
+        ipcRenderer.removeListener("response-event", handleAgentEvent)
         return result
       })
     } else {

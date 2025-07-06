@@ -81,43 +81,43 @@ const useStore = create((set, get) => ({
     try {
       // Get the index of the loading message we just added
       let messageIndex = get().messages.length - 1
-      let isFirstChunk = true
+      let isFirstEvent = true
 
-      // Send streaming query with chunk handler
+      // Send streaming query with event handler
       await window.api.sendQuery(
         {
           messages: get().messages.slice(0, -1), // Exclude the loading message
           selectedModel: get().selectedModel
         },
-        (responseData) => {
-          // Handle structured response data
-          if (isFirstChunk) {
+        (eventData) => {
+          // Handle structured event data
+          if (isFirstEvent) {
             // Replace loading message with the first response
             set((state) => {
               const updatedMessages = [...state.messages]
               updatedMessages[messageIndex] = {
-                ...responseData,
+                ...eventData,
                 timestamp: new Date()
               }
               return { messages: updatedMessages }
             })
-            isFirstChunk = false
+            isFirstEvent = false
           } else {
             // For subsequent responses, check if we should append to existing or create new
-            if (responseData.type === "text" && get().messages[messageIndex]?.type === "text") {
+            if (eventData.type === "text" && get().messages[messageIndex]?.type === "text") {
               // Append text to existing text message
               set((state) => {
                 const updatedMessages = [...state.messages]
                 updatedMessages[messageIndex] = {
                   ...updatedMessages[messageIndex],
-                  content: updatedMessages[messageIndex].content + responseData.content
+                  content: updatedMessages[messageIndex].content + eventData.content
                 }
                 return { messages: updatedMessages }
               })
             } else {
               // Add as new message
               get().addMessage({
-                ...responseData,
+                ...eventData,
                 timestamp: new Date()
               })
               messageIndex = get().messages.length - 1

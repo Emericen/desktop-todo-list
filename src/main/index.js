@@ -5,7 +5,8 @@ import dotenv from "dotenv"
 import {
   createChatWindow,
   showChatWindow,
-  toggleChatWindow
+  toggleChatWindow,
+  hideChatWindow
 } from "./windows/chat.js"
 import { createSettingsWindow } from "./windows/settings.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
@@ -48,7 +49,7 @@ app.whenReady().then(() => {
   const openaiClient = new OpenAIClient()
 
   // Initialize Agent with OS client
-  const agent = new Agent(osClient)
+  const agent = new Agent(osClient, hideChatWindow, showChatWindow)
 
   // Default open or close DevTools by F12 in development
   app.on("browser-window-created", (_, window) => {
@@ -71,16 +72,16 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle("query", async (event, payload) => {
-    const pushResponseEvent = (chunk) => {
-      event.sender.send("token", chunk)
+    const pushEvent = (eventData) => {
+      event.sender.send("response-event", eventData)
     }
 
     // TODO: TOGGLE AGENT FLAG
     const useAgent = true
     if (useAgent) {
-      return await agent.run(payload.messages, pushResponseEvent)
+      return await agent.run(payload.messages, pushEvent)
     } else {
-      return await anthropicClient.sendQuery(payload, pushResponseEvent)
+      return await anthropicClient.sendQuery(payload, pushEvent)
     }
   })
 

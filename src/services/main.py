@@ -13,6 +13,17 @@ sct = mss()  # screenshot utility
 mouse_controller = mouse.Controller()  # mouse controller
 keyboard_controller = keyboard.Controller()  # keyboard controller
 
+# Global variables to store original screen dimensions
+original_width = 1280
+original_height = 720
+
+
+def scale_coordinates(x, y):
+    """Scale coordinates from 1280x720 to actual screen size"""
+    actual_x = int((x / 1280) * original_width)
+    actual_y = int((y / 720) * original_height)
+    return actual_x, actual_y
+
 
 @app.route("/echo", methods=["POST"])
 def echo():
@@ -23,31 +34,39 @@ def echo():
 
 @app.route("/screenshot", methods=["GET"])
 def take_screenshot():
+    global original_width, original_height
+    
     # 1. grab screen (BGRA bytes)
     raw = sct.grab(sct.monitors[1])
-    # 2. wrap BGRA → BGR ndarray (no copy)
+    
+    # 2. store original dimensions for coordinate scaling
+    original_width = raw.width
+    original_height = raw.height
+    
+    # 3. wrap BGRA → BGR ndarray (no copy)
     frame_bgr = np.frombuffer(raw.rgb, dtype=np.uint8).reshape(raw.height, raw.width, 3)
-    # 3. convert BGR to RGB for web display
+    # 4. convert BGR to RGB for web display
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
 
-    # 4. resize to exactly 1280x720 (may distort aspect ratio)
+    # 5. resize to exactly 1280x720 (may distort aspect ratio)
     frame_rgb = cv2.resize(frame_rgb, (1280, 720), interpolation=cv2.INTER_AREA)
 
-    # 5. encode to JPEG (quality 80)
+    # 6. encode to JPEG (quality 80)
     ok, jpg = cv2.imencode(".jpg", frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
-    # 6. Base-64 for WebSocket text frame
+    # 7. Base-64 for WebSocket text frame
     b64 = base64.b64encode(jpg).decode()
 
-    # 7. Return just the image (dimensions are always 1280x720)
-    print(f"Screenshot captured 1280x720")
+    # 8. Return just the image (dimensions are always 1280x720)
+    print(f"Screenshot captured: {original_width}x{original_height} → 1280x720")
     return jsonify({"image": b64}), 200
 
 
 @app.route("/position", methods=["POST"])
 def position_mouse():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     return jsonify({"message": "ok"}), 200
 
 
@@ -60,7 +79,8 @@ def click_mouse():
 @app.route("/left_click", methods=["POST"])
 def left_click():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     mouse_controller.click(mouse.Button.left)
     return jsonify({"message": "ok"}), 200
 
@@ -68,7 +88,8 @@ def left_click():
 @app.route("/right_click", methods=["POST"])
 def right_click():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     mouse_controller.click(mouse.Button.right)
     return jsonify({"message": "ok"}), 200
 
@@ -76,7 +97,8 @@ def right_click():
 @app.route("/middle_click", methods=["POST"])
 def middle_click():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     mouse_controller.click(mouse.Button.middle)
     return jsonify({"message": "ok"}), 200
 
@@ -84,7 +106,8 @@ def middle_click():
 @app.route("/double_click", methods=["POST"])
 def double_click():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     mouse_controller.click(mouse.Button.left, 2)
     return jsonify({"message": "ok"}), 200
 
@@ -92,7 +115,8 @@ def double_click():
 @app.route("/triple_click", methods=["POST"])
 def triple_click():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     mouse_controller.click(mouse.Button.left, 3)
     return jsonify({"message": "ok"}), 200
 
@@ -100,7 +124,8 @@ def triple_click():
 @app.route("/left_mouse_down", methods=["POST"])
 def left_mouse_down():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     mouse_controller.press(mouse.Button.left)
     return jsonify({"message": "ok"}), 200
 
@@ -108,7 +133,8 @@ def left_mouse_down():
 @app.route("/left_mouse_up", methods=["POST"])
 def left_mouse_up():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     mouse_controller.release(mouse.Button.left)
     return jsonify({"message": "ok"}), 200
 
@@ -116,9 +142,11 @@ def left_mouse_up():
 @app.route("/left_click_drag", methods=["POST"])
 def left_click_drag():
     data = request.get_json()
-    mouse_controller.position = (data["x1"], data["y1"])
+    actual_x1, actual_y1 = scale_coordinates(data["x1"], data["y1"])
+    actual_x2, actual_y2 = scale_coordinates(data["x2"], data["y2"])
+    mouse_controller.position = (actual_x1, actual_y1)
     mouse_controller.press(mouse.Button.left)
-    mouse_controller.position = (data["x2"], data["y2"])
+    mouse_controller.position = (actual_x2, actual_y2)
     mouse_controller.release(mouse.Button.left)
     return jsonify({"message": "ok"}), 200
 
@@ -178,7 +206,8 @@ def hold_key():
 @app.route("/scroll", methods=["POST"])
 def scroll():
     data = request.get_json()
-    mouse_controller.position = (data["x"], data["y"])
+    actual_x, actual_y = scale_coordinates(data["x"], data["y"])
+    mouse_controller.position = (actual_x, actual_y)
     direction = data["direction"]
     amount = data.get("amount", 1)
 

@@ -9,7 +9,7 @@ export default class AnthropicClient {
     this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   }
 
-  async sendQuery(payload, onResponseToken) {
+  async sendQuery(payload, onAgentEvent) {
     const messages = this.convertToAnthropicMessage(payload.messages)
     try {
       // Log request with truncated base64 strings
@@ -18,7 +18,7 @@ export default class AnthropicClient {
         JSON.stringify(this.truncateBase64(messages), null, 2)
       )
 
-      if (onResponseToken) {
+      if (onAgentEvent) {
         // Use streaming for real-time response
         const stream = await this.anthropic.messages.create({
           model: "claude-sonnet-4-20250514",
@@ -33,7 +33,7 @@ export default class AnthropicClient {
           if (chunk.type === "content_block_delta" && chunk.delta?.text) {
             const text = chunk.delta.text
             fullResponse += text
-            onResponseToken({ type: "text", content: text })
+            onAgentEvent({ type: "text", content: text })
           }
         }
 

@@ -135,8 +135,11 @@ const tools = [
 ]
 
 export default class Agent {
-  constructor(osClient) {
+  constructor(osClient, hideWindow, showWindow) {
     this.osClient = osClient
+    this.hideWindow = hideWindow
+    this.showWindow = showWindow
+
     this.anthropicClient = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
     })
@@ -161,7 +164,7 @@ export default class Agent {
     }
   }
 
-  async run(frontendMessages, pushResponseEvent) {
+  async run(frontendMessages, pushEvent) {
     try {
       const messages = frontendMessages.map((msg) =>
         this.messageConverter[msg.type](msg)
@@ -179,8 +182,8 @@ export default class Agent {
 
       // prettier-ignore
       const contentHandlers = {
-        tool_use: async (content) => await this._executeTool(content, pushResponseEvent),
-        text: (content) => pushResponseEvent({ type: "text", content: content.text })
+        tool_use: async (content) => await this._executeTool(content, pushEvent),
+        text: (content) => pushEvent({ type: "text", content: content.text })
       }
 
       for (const content of response.content) {
@@ -193,38 +196,50 @@ export default class Agent {
       }
     } catch (error) {
       console.error("Agent error:", error)
-      pushResponseEvent({ type: "error", content: error.message })
+      pushEvent({ type: "error", content: error.message })
     }
   }
 
-  async _executeTool(content, pushResponseEvent) {
+  async _executeTool(content, pushEvent) {
     // prettier-ignore
     const toolHandlers = {
       left_click: async (input) => {
-        pushResponseEvent({ type: "action", action: "left_click", x: input.x, y: input.y })
+        pushEvent({ type: "action", action: "left_click", x: input.x, y: input.y })
+        this.hideWindow()
         await this.osClient.leftClick(input.x, input.y)
+        this.showWindow()
       },
       right_click: async (input) => {
-        pushResponseEvent({ type: "action", action: "right_click", x: input.x, y: input.y })
+        pushEvent({ type: "action", action: "right_click", x: input.x, y: input.y })
+        this.hideWindow()
         await this.osClient.rightClick(input.x, input.y)
+        this.showWindow()
       },
       double_click: async (input) => {
-        pushResponseEvent({ type: "action", action: "double_click", x: input.x, y: input.y })
+        pushEvent({ type: "action", action: "double_click", x: input.x, y: input.y })
+        this.hideWindow()
         await this.osClient.doubleClick(input.x, input.y)
+        this.showWindow()
       },
       drag: async (input) => {
-        pushResponseEvent({ type: "action", action: "drag", x1: input.x1, y1: input.y1, x2: input.x2, y2: input.y2 })
+        pushEvent({ type: "action", action: "drag", x1: input.x1, y1: input.y1, x2: input.x2, y2: input.y2 })
+        this.hideWindow()
         await this.osClient.leftClickDrag(input.x1, input.y1, input.x2, input.y2)
+        this.showWindow()
       },
       type: async (input) => {
-        pushResponseEvent({ type: "action", action: "type", text: input.text })
+        pushEvent({ type: "action", action: "type", text: input.text })
+        this.hideWindow()
         await this.osClient.typeText(input.text)
+        this.showWindow()
       },
       bash: async (input) => {
-        pushResponseEvent({ type: "action", action: "bash", command: input.command })
+        pushEvent({ type: "action", action: "bash", command: input.command })
+        this.hideWindow()
         const result = await this.osClient.executeCommand(input.command)
         console.log("Command result:", result)
-        pushResponseEvent({ type: "bash_result", success: result.success, output: result.stdout, error: result.stderr })
+        pushEvent({ type: "bash_result", success: result.success, output: result.stdout, error: result.stderr })
+        this.showWindow()
         return result
       }
     }
@@ -236,7 +251,7 @@ export default class Agent {
       // I assume this will never happen and Anthropic is using constrained/guided generation on the model
       // for their tool calling framework. Otherwise, I would be disappointed.
       console.log(`Unknown tool name: ${content.name}`)
-      pushResponseEvent({
+      pushEvent({
         type: "error",
         content: `Unknown tool: ${content.name}`
       })
