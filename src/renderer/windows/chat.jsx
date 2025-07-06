@@ -16,6 +16,7 @@ export default function ChatWindow() {
   const messages = useStore((s) => s.messages)
   const settings = useStore((s) => s.settings)
   const loadSettings = useStore((s) => s.loadSettings)
+  const toggleTranscription = useStore((s) => s.toggleTranscription)
   const shortcut = settings?.globalShortcuts?.toggleWindow
 
   const bottomRef = useRef(null)
@@ -24,6 +25,19 @@ export default function ChatWindow() {
   useEffect(() => {
     loadSettings()
   }, [loadSettings])
+
+  // Handle Alt+\ for transcription toggle
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.altKey && e.key === "\\") {
+        e.preventDefault()
+        toggleTranscription()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [toggleTranscription])
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -40,7 +54,7 @@ export default function ChatWindow() {
         className="fixed top-0 left-0 right-0 h-6 flex items-center pl-2 select-none text-xs text-muted-foreground z-50 bg-background border-b border-border"
         style={{ WebkitAppRegion: "drag" }}
       >
-        {`Press ${shortcut} to toggle`}
+        {`Press ${shortcut} to toggle • Alt+\\ for transcription`}
       </div>
 
       {/* Offset main content to avoid overlapping header */}

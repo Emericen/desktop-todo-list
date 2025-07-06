@@ -86,7 +86,6 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle("transcribe", async (_event, payload) => {
-    console.log("transcribe audio")
     const audioBuffer = Buffer.from(payload.audio, "base64")
     return await openaiClient.transcribeAudio(audioBuffer, payload.filename)
   })

@@ -55,8 +55,17 @@ export default function QueryBar() {
   // Set up transcription callback
   useEffect(() => {
     setTranscriptionCallback((transcribedText) => {
-      setInput((prev) => prev + transcribedText)
-      textareaRef.current?.focus()
+      setInput((prev) => {
+        const newText = prev + transcribedText
+        // Focus and position cursor at the end after text is set
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.focus()
+            textareaRef.current.setSelectionRange(newText.length, newText.length)
+          }
+        }, 0)
+        return newText
+      })
     })
   }, [setTranscriptionCallback])
 
@@ -110,15 +119,17 @@ export default function QueryBar() {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isTranscribing
-                    ? "Transcribing... speak clearly"
+                    ? "Listening..."
+                    : isProcessingAudio
+                    ? "Converting speech to text..."
                     : awaitingUserResponse
                     ? "Press Enter to confirm or Esc to cancel"
                     : "What can I do for you?"
                 }
                 className={`w-full min-h-[24px] max-h-[150px] resize-none border-none outline-none bg-transparent text-left overflow-y-auto ${
-                  isTranscribing ? "text-muted-foreground" : ""
+                  isTranscribing || isProcessingAudio ? "text-muted-foreground" : ""
                 }`}
-                disabled={awaitingUserResponse || isProcessingAudio}
+                disabled={awaitingUserResponse || isProcessingAudio || isTranscribing}
                 spellCheck="false"
                 autoCorrect="off"
                 autoCapitalize="off"

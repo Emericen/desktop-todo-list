@@ -58,7 +58,7 @@ def take_screenshot():
     b64 = base64.b64encode(jpg).decode()
 
     # 8. Return just the image (dimensions are always 1280x720)
-    print(f"Screenshot captured: {original_width}x{original_height} → 1280x720")
+    print(f"Screenshot captured: {original_width}x{original_height} -> 1280x720")
     return jsonify({"image": b64}), 200
 
 
