@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Check, X } from "lucide-react"
+import { Check, X, MousePointer, Terminal, Type, Move, Hand } from "lucide-react"
 import useStore from "@/store/useStore"
 import ReactMarkdown from "react-markdown"
 
@@ -70,6 +70,91 @@ export function TextMessage({ message }) {
   )
 }
 
+export function ActionMessage({ message }) {
+  const getActionIcon = (action) => {
+    switch (action) {
+      case "left_click":
+      case "right_click":
+      case "double_click":
+        return <MousePointer className="h-4 w-4" />
+      case "type":
+        return <Type className="h-4 w-4" />
+      case "drag":
+        return <Move className="h-4 w-4" />
+      case "bash":
+        return <Terminal className="h-4 w-4" />
+      default:
+        return <Hand className="h-4 w-4" />
+    }
+  }
+
+  const getActionDescription = (message) => {
+    switch (message.action) {
+      case "left_click":
+        return `Left clicked at (${message.x}, ${message.y})`
+      case "right_click":
+        return `Right clicked at (${message.x}, ${message.y})`
+      case "double_click":
+        return `Double clicked at (${message.x}, ${message.y})`
+      case "drag":
+        return `Dragged from (${message.x1}, ${message.y1}) to (${message.x2}, ${message.y2})`
+      case "type":
+        return `Typed: "${message.text}"`
+      case "bash":
+        return `Executed command: ${message.command}`
+      default:
+        return `Unknown action: ${message.action}`
+    }
+  }
+
+  return (
+    <div className="w-full group">
+      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-800">
+        {getActionIcon(message.action)}
+        <span className="text-sm font-medium">{getActionDescription(message)}</span>
+      </div>
+    </div>
+  )
+}
+
+export function BashResultMessage({ message }) {
+  return (
+    <div className="w-full group">
+      <div className={`px-3 py-2 rounded-lg border ${message.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <Terminal className="h-4 w-4" />
+          <span className={`text-sm font-medium ${message.success ? 'text-green-800' : 'text-red-800'}`}>
+            Command {message.success ? 'completed' : 'failed'}
+          </span>
+        </div>
+        {message.output && (
+          <pre className="text-xs bg-gray-900 text-green-400 p-2 rounded overflow-x-auto">
+            {message.output}
+          </pre>
+        )}
+        {message.error && (
+          <pre className="text-xs bg-gray-900 text-red-400 p-2 rounded overflow-x-auto mt-2">
+            {message.error}
+          </pre>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function ErrorMessage({ message }) {
+  return (
+    <div className="w-full group">
+      <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-red-800">
+        <div className="flex items-center gap-2">
+          <X className="h-4 w-4" />
+          <span className="text-sm font-medium">Error: {message.content}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ImageMessage({ message }) {
   return (
     <div className="w-full group">
@@ -93,7 +178,7 @@ export function ChoiceMessage({ message, index }) {
         message.answered ? "opacity-50" : ""
       } transition-opacity duration-200`}
     >
-      <blockquote className="border-l-2 pl-4 py-2">
+      <blockquote className="border-l-4 border-blue-500 pl-4 italic">
         <div className="flex items-center gap-3">
           <p className="text-base font-medium text-foreground">
             {message.content}

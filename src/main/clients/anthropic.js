@@ -33,11 +33,11 @@ export default class AnthropicClient {
           if (chunk.type === "content_block_delta" && chunk.delta?.text) {
             const text = chunk.delta.text
             fullResponse += text
-            onResponseToken(text)
+            onResponseToken({ type: "text", content: text })
           }
         }
 
-        return { type: "text", data: fullResponse }
+        return { type: "text", content: fullResponse }
       } else {
         // Non-streaming response
         const message = await this.anthropic.messages.create({
@@ -47,13 +47,13 @@ export default class AnthropicClient {
         })
 
         const response = message.content[0]?.text || ""
-        return { type: "text", data: response }
+        return { type: "text", content: response }
       }
     } catch (error) {
       console.error("Anthropic API Error:", error)
       return {
-        type: "text",
-        data: `Error calling Anthropic API: ${error.message}`
+        type: "error",
+        content: `Error calling Anthropic API: ${error.message}`
       }
     }
   }

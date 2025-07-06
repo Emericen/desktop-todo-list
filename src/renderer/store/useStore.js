@@ -89,29 +89,39 @@ const useStore = create((set, get) => ({
           messages: get().messages.slice(0, -1), // Exclude the loading message
           selectedModel: get().selectedModel
         },
-        (chunk) => {
-          // On first chunk, convert loading message to text message
+        (responseData) => {
+          // Handle structured response data
           if (isFirstChunk) {
+            // Replace loading message with the first response
             set((state) => {
               const updatedMessages = [...state.messages]
               updatedMessages[messageIndex] = {
-                ...updatedMessages[messageIndex],
-                type: "text",
-                content: chunk
+                ...responseData,
+                timestamp: new Date()
               }
               return { messages: updatedMessages }
             })
             isFirstChunk = false
           } else {
-            // Update the message with accumulated content
-            set((state) => {
-              const updatedMessages = [...state.messages]
-              updatedMessages[messageIndex] = {
-                ...updatedMessages[messageIndex],
-                content: updatedMessages[messageIndex].content + chunk
-              }
-              return { messages: updatedMessages }
-            })
+            // For subsequent responses, check if we should append to existing or create new
+            if (responseData.type === "text" && get().messages[messageIndex]?.type === "text") {
+              // Append text to existing text message
+              set((state) => {
+                const updatedMessages = [...state.messages]
+                updatedMessages[messageIndex] = {
+                  ...updatedMessages[messageIndex],
+                  content: updatedMessages[messageIndex].content + responseData.content
+                }
+                return { messages: updatedMessages }
+              })
+            } else {
+              // Add as new message
+              get().addMessage({
+                ...responseData,
+                timestamp: new Date()
+              })
+              messageIndex = get().messages.length - 1
+            }
           }
         }
       )
@@ -123,9 +133,9 @@ const useStore = create((set, get) => ({
         const updatedMessages = [...state.messages]
         const messageIndex = updatedMessages.length - 1
         updatedMessages[messageIndex] = {
-          ...updatedMessages[messageIndex],
-          type: "text",
-          content: `Error: ${error}`
+          type: "error",
+          content: `Error: ${error}`,
+          timestamp: new Date()
         }
         return { messages: updatedMessages }
       })

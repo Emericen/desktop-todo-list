@@ -6,20 +6,44 @@ An Electron application with React and AI agent integration.
 
 ### Install
 
+This project uses both Node.js and Python, so you'll need to set up a Python virtual environment first.
+
+**Windows:**
 ```bash
-$ npm install
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+venv\Scripts\activate
+
+# Install dependencies
+npm install
 ```
+
+**macOS/Linux:**
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Install dependencies
+npm install
+```
+
+Note: The `npm install` command will also trigger the Python package installation process.
 
 ### Development
 
 ```bash
-$ npm run dev
+npm run dev
 ```
 
 ### Testing
 
 ```bash
-$ npm run test
+npm run test
 ```
 
 ### Build
@@ -35,41 +59,23 @@ $ npm run build:mac
 $ npm run build:linux
 ```
 
-## Mock Mode for Development
+## Current Limitations
 
-For faster development and testing without AI dependencies, use mock mode:
+V1 introduced some limitations due to prioritizing faster time to market. In no particular order, here are the list of problems.
 
-```bash
-# In .env file
-MOCK_MODE=true
-```
+- All screenshots are resized to exactly 1280x720 pixels regardless of actual monitor dimensions. While sizing down is standard in CV, ultra-wide monitors (21:9, 32:9) and portrait monitors may experience stretching
+- No zoom functionality: Since images are sized down to 1280x720, large monitors with small UI elements may be difficult to identify for the agent. We can add zoom in and out tool for agent but we decided to deprioritize this for V1.
 
-Mock mode allows you to:
 
-- **Focus on UX** - Perfect the entire user experience without AI complexity
-- **Develop offline** - Work without internet or GPU server access
-- **Test deterministically** - Same responses every time for reliable testing
-- **Iterate faster** - No waiting for AI responses
+Also, here's a list of potential future work that does not block experience.
 
-### Creating Mock Data
+- We can migrate AI and OS logic to Python entirely and use FastAPI (which supports both HTTP and Websocket). We can keep pushing events to FE while using [keyring](https://github.com/jaraco/keyring) to store secrets.Lastly, here are the immediate todos.
 
-1. **Record coordinates** from your desktop:
 
-   ```bash
-   cd experiments
-   python s2_record_click.py
-   ```
+## TODO
 
-2. **Add to mock responses** in `tests/data/mockResponses.json`:
-   ```json
-   {
-     "responses": [
-       {
-         "role": "assistant",
-         "content": "Thought: I'll click on the file.\nAction: click(start_box='<|box_start|>(855, 618)<|box_end|>')"
-       }
-     ]
-   }
-   ```
+- Hide chat window before agent execute action, then show chat window.
+- Scale up coordinates to actual screen size. think should do this in python.
+- Agent **loop**.
+- [Experiment] plan & list of actions first -> user approve -> hide window -> execute actions in multiple turns -> show window.
 
-Mock responses simulate the full AI behavior including screenshots, action planning, confirmations, and task completion.

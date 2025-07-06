@@ -5,6 +5,9 @@ import {
   UserMessage,
   TextMessage,
   ImageMessage,
+  ActionMessage,
+  BashResultMessage,
+  ErrorMessage,
   ChoiceMessage,
   LoadingMessage
 } from "@/components/Messages"
@@ -51,6 +54,12 @@ export default function ChatWindow() {
                     return <UserMessage key={index} message={message} />
                   case "image":
                     return <ImageMessage key={index} message={message} />
+                  case "action":
+                    return <ActionMessage key={index} message={message} />
+                  case "bash_result":
+                    return <BashResultMessage key={index} message={message} />
+                  case "error":
+                    return <ErrorMessage key={index} message={message} />
                   case "loading":
                     return <LoadingMessage key={index} />
                   case "confirmation":

@@ -91,9 +91,7 @@ export function toggleChatWindow() {
             if (res && res.image) {
               const imagePayload = {
                 type: "image",
-                content: `data:image/jpeg;base64,${res.image}`,
-                width: res.width,
-                height: res.height
+                content: `data:image/jpeg;base64,${res.image}`
               }
 
               const sendMessages = () => {

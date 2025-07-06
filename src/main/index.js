@@ -80,7 +80,7 @@ app.whenReady().then(() => {
     if (useAgent) {
       return await agent.run(payload.messages, pushResponseEvent)
     } else {
-      return await anthropicClient.sendQuery(payload, sendResponseToken)
+      return await anthropicClient.sendQuery(payload, pushResponseEvent)
     }
   })
 

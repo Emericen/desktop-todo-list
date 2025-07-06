@@ -2,36 +2,153 @@ import Anthropic from "@anthropic-ai/sdk"
 import dotenv from "dotenv"
 dotenv.config()
 
-class Agent {
+const windowsSystem = `Help user to accomplish tasks on the computer. The user will provide you with a screenshot of the computer and you will need to use the tools to accomplish the task.
+    - When working with local directory stuff, you should always use bash tool instead of clicking around computer.
+    - Operating System: win32 (Windows)
+    - Shell: cmd (use Windows commands like dir, cd, type, etc.)
+    - Use appropriate commands for the user's operating system.`
+
+const macosSystem = `Help user to accomplish tasks on the computer. The user will provide you with a screenshot of the computer and you will need to use the tools to accomplish the task.
+    - When working with local directory stuff, you should always use bash tool instead of clicking around computer.
+    - Operating System: darwin (macOS)
+    - Shell: bash (use Unix commands like ls, cd, cat, etc.)
+    - Use appropriate commands for the user's operating system.`
+
+const linuxSystem = `Help user to accomplish tasks on the computer. The user will provide you with a screenshot of the computer and you will need to use the tools to accomplish the task.
+    - When working with local directory stuff, you should always use bash tool instead of clicking around computer.
+    - Operating System: linux (Linux)
+    - Shell: bash (use Unix commands like ls, cd, cat, etc.)
+    - Use appropriate commands for the user's operating system.`
+
+const tools = [
+  {
+    type: "custom",
+    name: "left_click",
+    description:
+      "Click the left mouse button at designated location on the screen.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: {
+          type: "number",
+          description:
+            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+        },
+        y: {
+          type: "number",
+          description:
+            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "right_click",
+    description:
+      "Click the right mouse button at designated location on the screen.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: {
+          type: "number",
+          description:
+            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+        },
+        y: {
+          type: "number",
+          description:
+            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "double_click",
+    description:
+      "Double click the mouse button at designated location on the screen.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: {
+          type: "number",
+          description:
+            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+        },
+        y: {
+          type: "number",
+          description:
+            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "drag",
+    description:
+      "Drag the mouse with left button held down from one location to another on the screen. Useful for moving windows, selecting text, or dragging and dropping items.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x1: {
+          type: "number",
+          description:
+            "The x pixel coordinate where the drag starts. Ranging from 1 to 1280."
+        },
+        y1: {
+          type: "number",
+          description:
+            "The y pixel coordinate where the drag starts. Ranging from 1 to 720."
+        },
+        x2: {
+          type: "number",
+          description:
+            "The x pixel coordinate where the drag ends. Ranging from 1 to 1280."
+        },
+        y2: {
+          type: "number",
+          description:
+            "The y pixel coordinate where the drag ends. Ranging from 1 to 720."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "type",
+    description:
+      "Perform a sequence of keyboard inputs. Note this should be used after you click and focus the cursor on the text input field, etc.",
+    input_schema: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description:
+            "The text to type. Can be any string valid for US keyboard, and can include special characters like `, *, etc."
+        }
+      }
+    }
+  },
+  { type: "bash_20250124", name: "bash" }
+]
+
+export default class Agent {
   constructor(osClient) {
     this.osClient = osClient
     this.anthropicClient = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
     })
-    this.display_width = null
-    this.display_height = null
     this.messages = []
 
-    // Get OS info for the AI
-    const osInfo = {
-      platform: process.platform,
-      shell: process.platform === "win32" ? "cmd" : "bash",
-      isWindows: process.platform === "win32",
-      isLinux: process.platform === "linux",
-      isMac: process.platform === "darwin"
-    }
+    this.system =
+      process.platform === "win32"
+        ? windowsSystem
+        : process.platform === "linux"
+        ? linuxSystem
+        : macosSystem
 
-    this.system = `- Never take a screenshot!! Use the screenshot we already give you!! 
-    - When working with local directory stuff, you should always use bash tool instead of clicking around computer.
-    - Operating System: ${osInfo.platform} (${
-      osInfo.isWindows ? "Windows" : osInfo.isLinux ? "Linux" : "macOS"
-    })
-    - Shell: ${osInfo.shell} ${
-      osInfo.isWindows
-        ? "(use Windows commands like dir, cd, type, etc.)"
-        : "(use Unix commands like ls, cd, cat, etc.)"
-    }
-    - Use appropriate commands for the user's operating system.`
     this.messages = []
 
     // our message type : how to convert to anthropic message
@@ -39,8 +156,6 @@ class Agent {
       user: (msg) => ({ role: "user", content: msg.content }),
       text: (msg) => ({ role: "assistant", content: msg.content }),
       image: (msg) => {
-        this.display_width = msg.width || this.display_width
-        this.display_height = msg.height || this.display_height
         return this._convertImageMessage(msg)
       }
     }
@@ -51,150 +166,81 @@ class Agent {
       const messages = frontendMessages.map((msg) =>
         this.messageConverter[msg.type](msg)
       )
-      console.log(
-        `--------\n${this.display_width}x${this.display_height} --------`
-      )
       console.log(`--------\n${JSON.stringify(messages, null, 2)}\n--------`)
       const response = await this.anthropicClient.beta.messages.create({
         model: "claude-sonnet-4-20250514",
-        tools: [
-          {
-            type: "computer_20250124",
-            name: "computer",
-            display_width_px: this.display_width,
-            display_height_px: this.display_height,
-            display_number: 1
-          },
-          { type: "bash_20250124", name: "bash" }
-        ],
-        betas: ["computer-use-2025-01-24"],
+        tools: tools,
         system: this.system,
         messages: messages,
-        thinking: { type: "enabled", budget_tokens: 1024 },
         max_tokens: 2048,
-        temperature: 1.0,
+        temperature: 0,
         stream: false
       })
 
-      console.log(`--------\n${JSON.stringify(response, null, 2)}\n--------`)
-      response.content.forEach((content) => {
-        switch (content.type) {
-          case "tool_use":
-            if (content.name === "computer") {
-              this._executeComputerTool(content)
-            } else if (content.name === "bash") {
-              this._executeBashTool(content)
-            } else {
-              console.log(`Unknown tool name: ${content.name}`)
-            }
-            break
-          case "text":
-            pushResponseEvent(content.text)
-            break
-          default:
-            console.log(`Unknown content type: ${content.type}`)
-            break
-        }
-      })
+      // prettier-ignore
+      const contentHandlers = {
+        tool_use: async (content) => await this._executeTool(content, pushResponseEvent),
+        text: (content) => pushResponseEvent({ type: "text", content: content.text })
+      }
 
-      return `Done`
+      for (const content of response.content) {
+        const handler = contentHandlers[content.type]
+        if (handler) {
+          await handler(content)
+        } else {
+          console.log(`Unknown content type: ${content.type}`)
+        }
+      }
     } catch (error) {
       console.error("Agent error:", error)
-      throw error
+      pushResponseEvent({ type: "error", content: error.message })
     }
   }
 
-  async _executeComputerTool(content) {
-    console.log("Computer tool call:", content)
-    const { action, coordinate, text, scroll_direction, scroll_amount } =
-      content.input
-
-    switch (action) {
-      case "screenshot":
-        // Return the screenshot we already have from window toggle
-        return {
-          success: true,
-          image: "Screenshot already provided in conversation",
-          width: this.display_width,
-          height: this.display_height
-        }
-      case "left_click":
-        await this.osClient.leftClick(coordinate[0], coordinate[1])
-        break
-      case "type":
-        await this.osClient.typeText(text)
-        break
-      case "key":
-        await this.osClient.pressKey(text)
-        break
-      case "mouse_move":
-        await this.osClient.moveMouse(coordinate[0], coordinate[1])
-        break
-      case "scroll":
-        await this.osClient.scroll(
-          coordinate[0],
-          coordinate[1],
-          scroll_direction,
-          scroll_amount
-        )
-        break
-      case "left_click_drag":
-        await this.osClient.leftClickDrag(
-          coordinate[0],
-          coordinate[1],
-          coordinate[2],
-          coordinate[3]
-        )
-        break
-      case "right_click":
-        await this.osClient.rightClick(coordinate[0], coordinate[1])
-        break
-      case "middle_click":
-        await this.osClient.middleClick(coordinate[0], coordinate[1])
-        break
-      case "double_click":
-        await this.osClient.doubleClick(coordinate[0], coordinate[1])
-        break
-      case "triple_click":
-        await this.osClient.tripleClick(coordinate[0], coordinate[1])
-        break
-      case "left_mouse_down":
-        await this.osClient.leftMouseDown(coordinate[0], coordinate[1])
-        break
-      case "left_mouse_up":
-        await this.osClient.leftMouseUp(coordinate[0], coordinate[1])
-        break
-      case "hold_key":
-        await this.osClient.holdKey(text)
-        break
-      case "wait":
-        await this.osClient.wait(content.input.duration || 1000)
-        break
-      default:
-        console.log(`Unknown computer action: ${action}`)
-        break
+  async _executeTool(content, pushResponseEvent) {
+    // prettier-ignore
+    const toolHandlers = {
+      left_click: async (input) => {
+        pushResponseEvent({ type: "action", action: "left_click", x: input.x, y: input.y })
+        await this.osClient.leftClick(input.x, input.y)
+      },
+      right_click: async (input) => {
+        pushResponseEvent({ type: "action", action: "right_click", x: input.x, y: input.y })
+        await this.osClient.rightClick(input.x, input.y)
+      },
+      double_click: async (input) => {
+        pushResponseEvent({ type: "action", action: "double_click", x: input.x, y: input.y })
+        await this.osClient.doubleClick(input.x, input.y)
+      },
+      drag: async (input) => {
+        pushResponseEvent({ type: "action", action: "drag", x1: input.x1, y1: input.y1, x2: input.x2, y2: input.y2 })
+        await this.osClient.leftClickDrag(input.x1, input.y1, input.x2, input.y2)
+      },
+      type: async (input) => {
+        pushResponseEvent({ type: "action", action: "type", text: input.text })
+        await this.osClient.typeText(input.text)
+      },
+      bash: async (input) => {
+        pushResponseEvent({ type: "action", action: "bash", command: input.command })
+        const result = await this.osClient.executeCommand(input.command)
+        console.log("Command result:", result)
+        pushResponseEvent({ type: "bash_result", success: result.success, output: result.stdout, error: result.stderr })
+        return result
+      }
     }
-  }
 
-  async _executeBashTool(toolContent) {
-    console.log("Bash tool call:", toolContent)
-    const command = toolContent.input.command
-
-    try {
-      const result = await this.osClient.executeCommand(command)
-      console.log("Command result:", result)
-      return result
-    } catch (error) {
-      console.error("Command execution failed:", error)
-      return { success: false, error: error.message }
+    const handler = toolHandlers[content.name]
+    if (handler) {
+      await handler(content.input)
+    } else {
+      // I assume this will never happen and Anthropic is using constrained/guided generation on the model
+      // for their tool calling framework. Otherwise, I would be disappointed.
+      console.log(`Unknown tool name: ${content.name}`)
+      pushResponseEvent({
+        type: "error",
+        content: `Unknown tool: ${content.name}`
+      })
     }
-  }
-
-  /**
-   * Check if the agent should continue or stop
-   */
-  _shouldContinue() {
-    return this.isRunning
   }
 
   _convertImageMessage(msg) {
@@ -225,5 +271,3 @@ class Agent {
     }
   }
 }
-
-export default Agent
