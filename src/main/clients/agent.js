@@ -29,48 +29,126 @@ IMPORTANT:
 - Always execute commands one at a time
 - Use the screenshot feedback to guide your next action
 - If something doesn't work as expected, adjust your approach
+- After you click on certain UIs, you should wait for a moment before continuing. Use bash tool and sleep for certain amount of time.
 - Explain what you're doing so the user understands your process`
 
-const windowsPrompt = `
-Operating System: win32 (Windows)
-Shell: PowerShell 
+const windowsPrompt = `Operating System: win32 (Windows) | Shell: PowerShell`
+const macosPrompt = `Operating System: darwin (macOS) | Shell: bash`
+const linuxPrompt = `Operating System: linux (Linux) | Shell: bash`
 
-GUI AUTOMATION COMMANDS:
-- Click: powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new(x, y); [System.Windows.Forms.SendKeys]::SendWait('{BUTTON 1}')"
-- Type: powershell -Command "[System.Windows.Forms.SendKeys]::SendWait('text')"
-- Key press: powershell -Command "[System.Windows.Forms.SendKeys]::SendWait('{ENTER}')"
-
-Note: All coordinates are in 1280x720 scale and will be automatically scaled to actual screen resolution.`
-
-const macosPrompt = `
-Operating System: darwin (macOS)
-Shell: bash
-
-GUI AUTOMATION COMMANDS:
-- Click: cliclick c:x,y
-- Type: cliclick t:"text"
-- Key press: cliclick kp:return
-- Drag: cliclick dd:x1,y1 du:x2,y2
-- Right-click: cliclick rc:x,y
-- Double-click: cliclick dc:x,y
-
-Note: All coordinates are in 1280x720 scale and will be automatically scaled to actual screen resolution.`
-
-const linuxPrompt = `
-Operating System: linux (Linux)
-Shell: bash
-
-GUI AUTOMATION COMMANDS:
-- Click: xdotool mousemove x y click 1
-- Type: xdotool type "text"
-- Key press: xdotool key Return
-- Drag: xdotool mousemove x1 y1 mousedown 1 mousemove x2 y2 mouseup 1
-- Right-click: xdotool mousemove x y click 3
-- Double-click: xdotool mousemove x y click --repeat 2 1
-
-Note: All coordinates are in 1280x720 scale and will be automatically scaled to actual screen resolution.`
-
-const tools = [{ type: "bash_20250124", name: "bash" }]
+const tools = [
+  {
+    type: "custom",
+    name: "left_click",
+    description:
+      "Click the left mouse button at designated location on the screen.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: {
+          type: "number",
+          description:
+            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+        },
+        y: {
+          type: "number",
+          description:
+            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "right_click",
+    description:
+      "Click the right mouse button at designated location on the screen.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: {
+          type: "number",
+          description:
+            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+        },
+        y: {
+          type: "number",
+          description:
+            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "double_click",
+    description:
+      "Double click the mouse button at designated location on the screen.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: {
+          type: "number",
+          description:
+            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+        },
+        y: {
+          type: "number",
+          description:
+            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "drag",
+    description:
+      "Drag the mouse with left button held down from one location to another on the screen. Useful for moving windows, selecting text, or dragging and dropping items.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x1: {
+          type: "number",
+          description:
+            "The x pixel coordinate where the drag starts. Ranging from 1 to 1280."
+        },
+        y1: {
+          type: "number",
+          description:
+            "The y pixel coordinate where the drag starts. Ranging from 1 to 720."
+        },
+        x2: {
+          type: "number",
+          description:
+            "The x pixel coordinate where the drag ends. Ranging from 1 to 1280."
+        },
+        y2: {
+          type: "number",
+          description:
+            "The y pixel coordinate where the drag ends. Ranging from 1 to 720."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "type",
+    description:
+      "Perform a sequence of keyboard inputs. Note this should be used after you click and focus the cursor on the text input field, etc.",
+    input_schema: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description:
+            "The text to type. Can be any string valid for US keyboard, and can include special characters like `, *, etc."
+        }
+      }
+    }
+  },
+  { type: "bash_20250124", name: "bash" }
+]
 
 export default class Agent {
   constructor(osClient, hideWindow, showWindow) {
@@ -170,13 +248,13 @@ export default class Agent {
 
     let running = true
     while (running) {
-      console.log(
-        `------------- ${JSON.stringify(
-          this.truncateBase64(this.messages),
-          null,
-          2
-        )} -------------`
-      )
+      // console.log(
+      //   `------------- ${JSON.stringify(
+      //     this.truncateBase64(this.messages),
+      //     null,
+      //     2
+      //   )} -------------`
+      // )
       const response = await this.anthropicClient.beta.messages.create({
         model: "claude-sonnet-4-20250514",
         tools: tools,
@@ -198,68 +276,164 @@ export default class Agent {
           pushEvent({ type: "text", content: content.text })
         }
 
-        if (content.type === "tool_use" && content.name === "bash") {
-          // Show the command and ask for confirmation
-          pushEvent({
-            type: "bash",
-            content: content.input.command,
-            toolUseId: content.id
-          })
+        if (content.type === "tool_use") {
+          if (content.name === "bash") {
+            // Show the command and ask for confirmation
+            pushEvent({
+              type: "bash",
+              content: content.input.command,
+              toolUseId: content.id
+            })
 
-          // Wait for user confirmation
-          const confirmation = await new Promise((resolve) => {
-            this.pendingConfirmation = resolve
-          })
+            // Wait for user confirmation
+            const confirmation = await new Promise((resolve) => {
+              this.pendingConfirmation = resolve
+            })
 
-          if (!confirmation) {
-            // User canceled - exit the agent loop
-            pushEvent({ type: "text", content: "Command execution canceled." })
-            running = false
-            break
-          }
+            if (!confirmation) {
+              // User canceled - exit the agent loop
+              pushEvent({
+                type: "text",
+                content: "Command execution canceled."
+              })
+              running = false
+              break
+            }
 
-          // User confirmed - hide window and execute
-          this.hideWindow()
-          pushEvent({
-            type: "text",
-            content: `Executing: ${content.input.command}`
-          })
+            // User confirmed - hide window and execute
+            this.hideWindow()
+            pushEvent({
+              type: "text",
+              content: `Executing: ${content.input.command}`
+            })
 
-          const result = await this.terminal.execute(content.input.command)
+            const result = await this.terminal.execute(content.input.command)
 
-          // Add tool result to conversation
-          this.messages.push({
-            role: "user",
-            content: [
-              {
-                type: "tool_result",
-                tool_use_id: content.id,
-                content: JSON.stringify(result, null, 2)
-              }
-            ]
-          })
-
-          await new Promise((resolve) => setTimeout(resolve, 800))
-
-          // Take screenshot after command execution
-          const screenshot = await this.osClient.takeScreenshot()
-          if (screenshot && screenshot.image) {
+            // Add tool result to conversation
             this.messages.push({
               role: "user",
               content: [
                 {
-                  type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: "image/jpeg",
-                    data: screenshot.image
-                  }
+                  type: "tool_result",
+                  tool_use_id: content.id,
+                  content: JSON.stringify(result, null, 2)
                 }
               ]
             })
-          }
 
-          this.showWindow()
+            await new Promise((resolve) => setTimeout(resolve, 800))
+
+            // Take screenshot after command execution
+            const screenshot = await this.osClient.takeScreenshot()
+            if (screenshot && screenshot.image) {
+              this.messages.push({
+                role: "user",
+                content: [
+                  {
+                    type: "image",
+                    source: {
+                      type: "base64",
+                      media_type: "image/jpeg",
+                      data: screenshot.image
+                    }
+                  }
+                ]
+              })
+            }
+
+            this.showWindow()
+          } else {
+            // Execute custom GUI tools via osClient
+            const exec = {
+              left_click: ({ x, y }) => this.osClient.leftClick(x, y),
+              right_click: ({ x, y }) => this.osClient.rightClick(x, y),
+              double_click: ({ x, y }) => this.osClient.doubleClick(x, y),
+              drag: ({ x1, y1, x2, y2 }) =>
+                this.osClient.leftClickDrag(x1, y1, x2, y2),
+              type: ({ text }) => this.osClient.typeText(text)
+            }[content.name]
+
+            if (exec) {
+                            // Show annotated screenshot for click/drag actions
+              const { x, y, x1, y1 } = content.input
+              if (x !== undefined && y !== undefined) {
+                const annotated = await this.osClient.annotateScreenshot(x, y)
+                if (annotated && annotated.image) {
+                  pushEvent({
+                    type: "image",
+                    content: `data:image/jpeg;base64,${annotated.image}`
+                  })
+                }
+              } else if (x1 !== undefined && y1 !== undefined) {
+                const annotated = await this.osClient.annotateScreenshot(x1, y1)
+                if (annotated && annotated.image) {
+                  pushEvent({
+                    type: "image", 
+                    content: `data:image/jpeg;base64,${annotated.image}`
+                  })
+                }
+              }
+
+              // Ask for confirmation with action description
+              const actionDesc = {
+                left_click: `Left click at (${content.input.x}, ${content.input.y})`,
+                right_click: `Right click at (${content.input.x}, ${content.input.y})`, 
+                double_click: `Double click at (${content.input.x}, ${content.input.y})`,
+                drag: `Drag from (${content.input.x1}, ${content.input.y1}) to (${content.input.x2}, ${content.input.y2})`,
+                type: `Type: "${content.input.text}"`
+              }[content.name]
+
+              pushEvent({
+                type: "bash", // Reuse bash confirmation UI
+                content: actionDesc,
+                toolUseId: content.id
+              })
+
+              const confirmation = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+
+              if (!confirmation) {
+                pushEvent({ type: "text", content: "Action canceled." })
+                running = false
+                break
+              }
+              this.hideWindow()
+              await exec(content.input)
+              // Record tool result (empty success message)
+              this.messages.push({
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: content.id,
+                    content: "ok"
+                  }
+                ]
+              })
+
+              await new Promise((resolve) => setTimeout(resolve, 800))
+
+              const screenshot = await this.osClient.takeScreenshot()
+              if (screenshot && screenshot.image) {
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "image",
+                      source: {
+                        type: "base64",
+                        media_type: "image/jpeg",
+                        data: screenshot.image
+                      }
+                    }
+                  ]
+                })
+              }
+
+              this.showWindow()
+            }
+          }
         }
       }
     }

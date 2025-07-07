@@ -86,6 +86,7 @@ class OSClient {
   wait = async (duration) =>
     new Promise((resolve) => setTimeout(resolve, duration))
   takeScreenshot = async () => this._get("/screenshot")
+  annotateScreenshot = async (x, y) => this._post("/annotate", { x, y })
 
   // Execute shell commands based on platform
   executeCommand = async (command) => {
