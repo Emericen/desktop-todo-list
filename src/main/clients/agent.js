@@ -186,13 +186,6 @@ export default class Agent {
         temperature: 0,
         stream: false
       })
-      // console.log(
-      //   `------------- ${JSON.stringify(
-      //     this.truncateBase64(response),
-      //     null,
-      //     2
-      //   )} -------------`
-      // )
 
       // Add assistant response to conversation
       this.messages.push({
@@ -269,16 +262,6 @@ export default class Agent {
           this.showWindow()
         }
       }
-      // console.log(
-      //   `------------- ${JSON.stringify(
-      //     this.truncateBase64(this.messages),
-      //     null,
-      //     2
-      //   )} -------------`
-      // )
-
-      // Continue running until explicitly stopped (by user canceling or completion)
-      // running = false
     }
   }
 }
