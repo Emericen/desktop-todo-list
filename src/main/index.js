@@ -6,7 +6,9 @@ import {
   createChatWindow,
   showChatWindow,
   toggleChatWindow,
-  hideChatWindow
+  hideChatWindow,
+  getCurrentScreenshot,
+  cleanup
 } from "./windows/chat.js"
 import { createSettingsWindow } from "./windows/settings.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
@@ -33,14 +35,14 @@ app.whenReady().then(() => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-      createChatWindow({ takeScreenshot: () => osClient.takeScreenshot() })
+      createChatWindow(osClient)
     }
   })
 
   // Register global shortcuts (can later be loaded from settings)
   registerShortcuts({ "Alt+P": toggleChatWindow })
 
-  // Create and start OS client
+  // Create and start OS client (shared by Agent and chat window)
   const osClient = new OSClient()
   osClient.start()
 
@@ -48,7 +50,7 @@ app.whenReady().then(() => {
   const anthropicClient = new AnthropicClient()
   const openaiClient = new OpenAIClient()
 
-  // Initialize Agent with OS client
+  // Initialize Agent with OSClient
   const agent = new Agent(osClient, hideChatWindow, showChatWindow)
 
   // Default open or close DevTools by F12 in development
@@ -76,13 +78,9 @@ app.whenReady().then(() => {
       event.sender.send("response-event", eventData)
     }
 
-    // TODO: TOGGLE AGENT FLAG
-    const useAgent = true
-    if (useAgent) {
-      return await agent.run(payload.messages, pushEvent)
-    } else {
-      return await anthropicClient.sendQuery(payload, pushEvent)
-    }
+    const screenshot = getCurrentScreenshot()
+    console.log("SIMPLIFIED PAYLOAD:", JSON.stringify(payload, null, 2))
+    return await agent.run(payload.query, screenshot, pushEvent)
   })
 
   ipcMain.handle("transcribe", async (_event, payload) => {
@@ -90,8 +88,13 @@ app.whenReady().then(() => {
     return await openaiClient.transcribeAudio(audioBuffer, payload.filename)
   })
 
+  ipcMain.handle("confirm-command", async (_event, confirmed) => {
+    agent.handleConfirmation(confirmed)
+    return { success: true }
+  })
+
   // ========= WINDOWS AND TRAY =========
-  createChatWindow({ takeScreenshot: () => osClient.takeScreenshot() })
+  createChatWindow(osClient)
   createSystemTray({
     onShowChat: () => showChatWindow(true),
     onOpenSettings: () => createSettingsWindow(),
@@ -101,6 +104,7 @@ app.whenReady().then(() => {
   // ========= APP CLEANUP =========
   app.on("before-quit", () => {
     osClient.stop()
+    cleanup()
   })
 
   app.on("will-quit", () => {

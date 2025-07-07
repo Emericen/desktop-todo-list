@@ -86,7 +86,7 @@ const useStore = create((set, get) => ({
       // Send streaming query with event handler
       await window.api.sendQuery(
         {
-          messages: get().messages.slice(0, -1), // Exclude the loading message
+          query: query, // Just send the query text
           selectedModel: get().selectedModel
         },
         (eventData) => {

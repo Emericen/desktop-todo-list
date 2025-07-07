@@ -74,8 +74,6 @@ Also, here's a list of potential future work that does not block experience.
 
 ## TODO
 
-- Hide chat window before agent execute action, then show chat window.
-- Scale up coordinates to actual screen size. think should do this in python.
 - Agent **loop**.
 - [Experiment] plan & list of actions first -> user approve -> hide window -> execute actions in multiple turns -> show window.
 

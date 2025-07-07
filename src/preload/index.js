@@ -32,8 +32,14 @@ const api = {
   // Listen to focus query input events
   onFocusQueryInput: (cb) => ipcRenderer.on("focus-query-input", cb),
 
+  // Listen to clear messages events
+  onClearMessages: (cb) => ipcRenderer.on("clear-messages", cb),
+
   // Transcribe audio using OpenAI Whisper
-  transcribeAudio: (payload) => ipcRenderer.invoke("transcribe", payload)
+  transcribeAudio: (payload) => ipcRenderer.invoke("transcribe", payload),
+
+  // Confirm or cancel command execution
+  confirmCommand: (confirmed) => ipcRenderer.invoke("confirm-command", confirmed)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

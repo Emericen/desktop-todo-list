@@ -142,6 +142,52 @@ export function BashResultMessage({ message }) {
   )
 }
 
+export function BashMessage({ message }) {
+  const handleConfirm = async () => {
+    await window.api.confirmCommand(true)
+  }
+
+  const handleCancel = async () => {
+    await window.api.confirmCommand(false)
+  }
+
+  return (
+    <div className="w-full group">
+      <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="flex items-center gap-2 mb-3">
+          <Terminal className="h-4 w-4 text-yellow-800" />
+          <span className="text-sm font-medium text-yellow-800">
+            Execute this command?
+          </span>
+        </div>
+        <div className="bg-gray-900 text-green-400 p-2 rounded mb-3 font-mono text-sm">
+          {message.content}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleConfirm}
+            className="h-8 px-4"
+          >
+            <Check className="h-4 w-4 mr-1" />
+            Execute
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCancel}
+            className="h-8 px-4"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ErrorMessage({ message }) {
   return (
     <div className="w-full group">

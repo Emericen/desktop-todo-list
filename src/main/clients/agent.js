@@ -1,138 +1,76 @@
 import Anthropic from "@anthropic-ai/sdk"
 import dotenv from "dotenv"
+import Terminal from "./terminal.js"
 dotenv.config()
 
-const windowsSystem = `Help user to accomplish tasks on the computer. The user will provide you with a screenshot of the computer and you will need to use the tools to accomplish the task.
-    - When working with local directory stuff, you should always use bash tool instead of clicking around computer.
-    - Operating System: win32 (Windows)
-    - Shell: cmd (use Windows commands like dir, cd, type, etc.)
-    - Use appropriate commands for the user's operating system.`
+const baseSystem = `You are an AI assistant that helps users accomplish tasks on their computer using command-line tools.
 
-const macosSystem = `Help user to accomplish tasks on the computer. The user will provide you with a screenshot of the computer and you will need to use the tools to accomplish the task.
-    - When working with local directory stuff, you should always use bash tool instead of clicking around computer.
-    - Operating System: darwin (macOS)
-    - Shell: bash (use Unix commands like ls, cd, cat, etc.)
-    - Use appropriate commands for the user's operating system.`
+HOW YOU OPERATE:
+You receive a user query along with a screenshot of their current desktop. You can:
+1. Respond with text to explain what you're doing
+2. Use the bash tool to execute commands (including GUI automation)
+3. After each bash command, you'll receive a new screenshot showing the updated state
+4. Continue this cycle until the task is complete
 
-const linuxSystem = `Help user to accomplish tasks on the computer. The user will provide you with a screenshot of the computer and you will need to use the tools to accomplish the task.
-    - When working with local directory stuff, you should always use bash tool instead of clicking around computer.
-    - Operating System: linux (Linux)
-    - Shell: bash (use Unix commands like ls, cd, cat, etc.)
-    - Use appropriate commands for the user's operating system.`
+AVAILABLE AUTOMATION:
+You have access to GUI automation tools through bash commands:
+- Mouse clicks, typing, window management
+- File operations, directory navigation  
+- Application launching and control
+- System commands and utilities
 
-const tools = [
-  {
-    type: "custom",
-    name: "left_click",
-    description:
-      "Click the left mouse button at designated location on the screen.",
-    input_schema: {
-      type: "object",
-      properties: {
-        x: {
-          type: "number",
-          description:
-            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
-        },
-        y: {
-          type: "number",
-          description:
-            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "right_click",
-    description:
-      "Click the right mouse button at designated location on the screen.",
-    input_schema: {
-      type: "object",
-      properties: {
-        x: {
-          type: "number",
-          description:
-            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
-        },
-        y: {
-          type: "number",
-          description:
-            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "double_click",
-    description:
-      "Double click the mouse button at designated location on the screen.",
-    input_schema: {
-      type: "object",
-      properties: {
-        x: {
-          type: "number",
-          description:
-            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
-        },
-        y: {
-          type: "number",
-          description:
-            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "drag",
-    description:
-      "Drag the mouse with left button held down from one location to another on the screen. Useful for moving windows, selecting text, or dragging and dropping items.",
-    input_schema: {
-      type: "object",
-      properties: {
-        x1: {
-          type: "number",
-          description:
-            "The x pixel coordinate where the drag starts. Ranging from 1 to 1280."
-        },
-        y1: {
-          type: "number",
-          description:
-            "The y pixel coordinate where the drag starts. Ranging from 1 to 720."
-        },
-        x2: {
-          type: "number",
-          description:
-            "The x pixel coordinate where the drag ends. Ranging from 1 to 1280."
-        },
-        y2: {
-          type: "number",
-          description:
-            "The y pixel coordinate where the drag ends. Ranging from 1 to 720."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "type",
-    description:
-      "Perform a sequence of keyboard inputs. Note this should be used after you click and focus the cursor on the text input field, etc.",
-    input_schema: {
-      type: "object",
-      properties: {
-        text: {
-          type: "string",
-          description:
-            "The text to type. Can be any string valid for US keyboard, and can include special characters like `, *, etc."
-        }
-      }
-    }
-  },
-  { type: "bash_20250124", name: "bash" }
-]
+EXECUTION APPROACH:
+- Execute one command at a time using the bash tool
+- Each command will be followed by a screenshot showing the result
+- Use the visual feedback to plan your next action
+- Be methodical and verify each step before proceeding
+
+IMPORTANT:
+- Always execute commands one at a time
+- Use the screenshot feedback to guide your next action
+- If something doesn't work as expected, adjust your approach
+- Explain what you're doing so the user understands your process`
+
+const windowsPrompt = `
+Operating System: win32 (Windows)
+Shell: PowerShell 
+
+GUI AUTOMATION COMMANDS:
+- Click: powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new(x, y); [System.Windows.Forms.SendKeys]::SendWait('{BUTTON 1}')"
+- Type: powershell -Command "[System.Windows.Forms.SendKeys]::SendWait('text')"
+- Key press: powershell -Command "[System.Windows.Forms.SendKeys]::SendWait('{ENTER}')"
+
+Note: All coordinates are in 1280x720 scale and will be automatically scaled to actual screen resolution.`
+
+const macosPrompt = `
+Operating System: darwin (macOS)
+Shell: bash
+
+GUI AUTOMATION COMMANDS:
+- Click: cliclick c:x,y
+- Type: cliclick t:"text"
+- Key press: cliclick kp:return
+- Drag: cliclick dd:x1,y1 du:x2,y2
+- Right-click: cliclick rc:x,y
+- Double-click: cliclick dc:x,y
+
+Note: All coordinates are in 1280x720 scale and will be automatically scaled to actual screen resolution.`
+
+const linuxPrompt = `
+Operating System: linux (Linux)
+Shell: bash
+
+GUI AUTOMATION COMMANDS:
+- Click: xdotool mousemove x y click 1
+- Type: xdotool type "text"
+- Key press: xdotool key Return
+- Drag: xdotool mousemove x1 y1 mousedown 1 mousemove x2 y2 mouseup 1
+- Right-click: xdotool mousemove x y click 3
+- Double-click: xdotool mousemove x y click --repeat 2 1
+
+Note: All coordinates are in 1280x720 scale and will be automatically scaled to actual screen resolution.`
+
+const tools = [{ type: "bash_20250124", name: "bash" }]
 
 export default class Agent {
   constructor(osClient, hideWindow, showWindow) {
@@ -143,146 +81,204 @@ export default class Agent {
     this.anthropicClient = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
     })
-    this.messages = []
 
     this.system =
-      process.platform === "win32"
-        ? windowsSystem
+      baseSystem.trim() +
+      `\n\n` +
+      (process.platform === "win32"
+        ? windowsPrompt
         : process.platform === "linux"
-        ? linuxSystem
-        : macosSystem
+        ? linuxPrompt
+        : macosPrompt)
 
     this.messages = []
+    this.terminal = new Terminal()
 
-    // our message type : how to convert to anthropic message
-    this.messageConverter = {
-      user: (msg) => ({ role: "user", content: msg.content }),
-      text: (msg) => ({ role: "assistant", content: msg.content }),
-      image: (msg) => {
-        return this._convertImageMessage(msg)
-      }
-    }
+    // For handling confirmation responses
+    this.pendingConfirmation = null
   }
 
-  async run(frontendMessages, pushEvent) {
-    try {
-      const messages = frontendMessages.map((msg) =>
-        this.messageConverter[msg.type](msg)
-      )
-      console.log(`--------\n${JSON.stringify(messages, null, 2)}\n--------`)
-      const response = await this.anthropicClient.beta.messages.create({
-        model: "claude-sonnet-4-20250514",
-        tools: tools,
-        system: this.system,
-        messages: messages,
-        max_tokens: 2048,
-        temperature: 0,
-        stream: false
-      })
+  // Convert full length base64 to `qweasd[...][chars]` for logging & debugging
+  truncateBase64(obj) {
+    // Case 1: raw data URL string
+    if (typeof obj === "string" && obj.startsWith("data:image/")) {
+      const [header, data] = obj.split(",")
+      return `${header},${data.substring(0, 20)}...${data.substring(
+        data.length - 10
+      )} [${data.length} chars]`
+    }
 
-      // prettier-ignore
-      const contentHandlers = {
-        tool_use: async (content) => await this._executeTool(content, pushEvent),
-        text: (content) => pushEvent({ type: "text", content: content.text })
-      }
+    // Case 2: very long plain base-64 string (heuristic: >100 chars & only base64 chars)
+    if (
+      typeof obj === "string" &&
+      obj.length > 100 &&
+      /^[A-Za-z0-9+/=]+$/.test(obj)
+    ) {
+      return `${obj.substring(0, 20)}...${obj.substring(obj.length - 10)} [${
+        obj.length
+      } chars]`
+    }
 
-      for (const content of response.content) {
-        const handler = contentHandlers[content.type]
-        if (handler) {
-          await handler(content)
-        } else {
-          console.log(`Unknown content type: ${content.type}`)
+    // Case 3: object with { type: 'base64', data: '...' }
+    if (obj && typeof obj === "object") {
+      if (obj.type === "base64" && typeof obj.data === "string") {
+        const data = obj.data
+        return {
+          ...obj,
+          data: `${data.substring(0, 20)}...${data.substring(
+            data.length - 10
+          )} [${data.length} chars]`
         }
       }
-    } catch (error) {
-      console.error("Agent error:", error)
-      pushEvent({ type: "error", content: error.message })
-    }
-  }
 
-  async _executeTool(content, pushEvent) {
-    // prettier-ignore
-    const toolHandlers = {
-      left_click: async (input) => {
-        pushEvent({ type: "action", action: "left_click", x: input.x, y: input.y })
-        this.hideWindow()
-        await this.osClient.leftClick(input.x, input.y)
-        this.showWindow()
-      },
-      right_click: async (input) => {
-        pushEvent({ type: "action", action: "right_click", x: input.x, y: input.y })
-        this.hideWindow()
-        await this.osClient.rightClick(input.x, input.y)
-        this.showWindow()
-      },
-      double_click: async (input) => {
-        pushEvent({ type: "action", action: "double_click", x: input.x, y: input.y })
-        this.hideWindow()
-        await this.osClient.doubleClick(input.x, input.y)
-        this.showWindow()
-      },
-      drag: async (input) => {
-        pushEvent({ type: "action", action: "drag", x1: input.x1, y1: input.y1, x2: input.x2, y2: input.y2 })
-        this.hideWindow()
-        await this.osClient.leftClickDrag(input.x1, input.y1, input.x2, input.y2)
-        this.showWindow()
-      },
-      type: async (input) => {
-        pushEvent({ type: "action", action: "type", text: input.text })
-        this.hideWindow()
-        await this.osClient.typeText(input.text)
-        this.showWindow()
-      },
-      bash: async (input) => {
-        pushEvent({ type: "action", action: "bash", command: input.command })
-        this.hideWindow()
-        const result = await this.osClient.executeCommand(input.command)
-        console.log("Command result:", result)
-        pushEvent({ type: "bash_result", success: result.success, output: result.stdout, error: result.stderr })
-        this.showWindow()
-        return result
+      if (Array.isArray(obj)) {
+        return obj.map((item) => this.truncateBase64(item))
       }
-    }
 
-    const handler = toolHandlers[content.name]
-    if (handler) {
-      await handler(content.input)
-    } else {
-      // I assume this will never happen and Anthropic is using constrained/guided generation on the model
-      // for their tool calling framework. Otherwise, I would be disappointed.
-      console.log(`Unknown tool name: ${content.name}`)
-      pushEvent({
-        type: "error",
-        content: `Unknown tool: ${content.name}`
-      })
+      const truncated = {}
+      for (const [key, value] of Object.entries(obj)) {
+        truncated[key] = this.truncateBase64(value)
+      }
+      return truncated
+    }
+    return obj
+  }
+
+  // Handle confirmation response from frontend
+  handleConfirmation(confirmed) {
+    if (this.pendingConfirmation) {
+      this.pendingConfirmation(confirmed)
+      this.pendingConfirmation = null
     }
   }
 
-  _convertImageMessage(msg) {
-    // Default values
-    let mediaType = "image/jpeg"
-    let base64Data = msg.content
-
-    // If content is a data URL, extract media type and base64 part
-    if (msg.content.startsWith("data:image/")) {
-      const [header, data] = msg.content.split(",")
-      base64Data = data
-      const mtMatch = header.match(/data:(.*);base64/)
-      if (mtMatch) mediaType = mtMatch[1]
-    }
-
-    return {
+  async run(query, initialScreenshot, pushEvent) {
+    this.messages.push({
       role: "user",
       content: [
         {
           type: "image",
           source: {
             type: "base64",
-            media_type: mediaType,
-            data: base64Data
+            media_type: "image/jpeg",
+            data: initialScreenshot
           }
-        }
+        },
+        { type: "text", text: query }
       ]
+    })
+
+    let running = true
+    while (running) {
+      console.log(
+        `------------- ${JSON.stringify(
+          this.truncateBase64(this.messages),
+          null,
+          2
+        )} -------------`
+      )
+      const response = await this.anthropicClient.beta.messages.create({
+        model: "claude-sonnet-4-20250514",
+        tools: tools,
+        system: this.system,
+        messages: this.messages,
+        max_tokens: 2048,
+        temperature: 0,
+        stream: false
+      })
+      // console.log(
+      //   `------------- ${JSON.stringify(
+      //     this.truncateBase64(response),
+      //     null,
+      //     2
+      //   )} -------------`
+      // )
+
+      // Add assistant response to conversation
+      this.messages.push({
+        role: "assistant",
+        content: response.content
+      })
+
+      for (const content of response.content) {
+        if (content.type === "text") {
+          pushEvent({ type: "text", content: content.text })
+        }
+
+        if (content.type === "tool_use" && content.name === "bash") {
+          // Show the command and ask for confirmation
+          pushEvent({
+            type: "bash",
+            content: content.input.command,
+            toolUseId: content.id
+          })
+
+          // Wait for user confirmation
+          const confirmation = await new Promise((resolve) => {
+            this.pendingConfirmation = resolve
+          })
+
+          if (!confirmation) {
+            // User canceled - exit the agent loop
+            pushEvent({ type: "text", content: "Command execution canceled." })
+            running = false
+            break
+          }
+
+          // User confirmed - hide window and execute
+          this.hideWindow()
+          pushEvent({
+            type: "text",
+            content: `Executing: ${content.input.command}`
+          })
+
+          const result = await this.terminal.execute(content.input.command)
+
+          // Add tool result to conversation
+          this.messages.push({
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: content.id,
+                content: JSON.stringify(result, null, 2)
+              }
+            ]
+          })
+
+          await new Promise((resolve) => setTimeout(resolve, 800))
+
+          // Take screenshot after command execution
+          const screenshot = await this.osClient.takeScreenshot()
+          if (screenshot && screenshot.image) {
+            this.messages.push({
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: "image/jpeg",
+                    data: screenshot.image
+                  }
+                }
+              ]
+            })
+          }
+
+          this.showWindow()
+        }
+      }
+      // console.log(
+      //   `------------- ${JSON.stringify(
+      //     this.truncateBase64(this.messages),
+      //     null,
+      //     2
+      //   )} -------------`
+      // )
+
+      // Continue running until explicitly stopped (by user canceling or completion)
+      // running = false
     }
   }
 }

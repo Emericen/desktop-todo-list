@@ -5,7 +5,8 @@ import { is } from "@electron-toolkit/utils"
 // ========== CHAT WINDOW STATE ==========
 let chatWindow = null
 let previouslyFocusedWindow = null
-let takeScreenshotFn = null
+let osClient = null
+let currentScreenshot = null
 
 // Reusable white square icon (16x16) for Linux where BrowserWindow expects an icon
 const WHITE_ICON_SIZE = 16
@@ -16,9 +17,9 @@ const whiteIcon = nativeImage.createFromBuffer(whiteBuf, {
   height: WHITE_ICON_SIZE
 })
 
-export function createChatWindow(callbacks = {}) {
-  // Store the takeScreenshot helper (returns {image: base64})
-  takeScreenshotFn = callbacks.takeScreenshot
+export function createChatWindow(sharedOSClient) {
+  // Use the shared OSClient for screenshot management
+  osClient = sharedOSClient
   // Get screen dimensions
   const { width: screenWidth, height: screenHeight } =
     screen.getPrimaryDisplay().workAreaSize
@@ -80,45 +81,71 @@ export function createChatWindow(callbacks = {}) {
   return chatWindow
 }
 
+// ========== SCREENSHOT MANAGEMENT ==========
+export async function updateCurrentScreenshot() {
+  if (!osClient) return null
+  
+  try {
+    const result = await osClient.takeScreenshot()
+    if (result && result.image) {
+      currentScreenshot = result.image
+      return currentScreenshot
+    }
+  } catch (error) {
+    console.error("Failed to update screenshot:", error)
+  }
+  return null
+}
+
+export function getCurrentScreenshot() {
+  return currentScreenshot
+}
+
+export function clearCurrentScreenshot() {
+  currentScreenshot = null
+}
+
+export function cleanup() {
+  // Clear local state (osClient is stopped centrally in index.js)
+  osClient = null
+  clearCurrentScreenshot()
+}
+
 export function toggleChatWindow() {
   if (chatWindow) {
     if (chatWindow.isVisible()) {
       hideChatWindow()
     } else {
-      if (takeScreenshotFn) {
-        takeScreenshotFn()
-          .then((res) => {
-            if (res && res.image) {
-              const imagePayload = {
-                type: "image",
-                content: `data:image/jpeg;base64,${res.image}`
-              }
-
-              const sendMessages = () => {
-                chatWindow.webContents.send("backend-push", imagePayload)
-              }
-
-              // If this is the very first load we may need to wait until DOM is ready
-              if (chatWindow.webContents.isLoading()) {
-                chatWindow.webContents.once("dom-ready", sendMessages)
-              } else {
-                sendMessages()
-              }
-            } else {
-              console.log("no image in screenshot response")
+      // Take screenshot and show window
+      updateCurrentScreenshot()
+        .then((screenshotData) => {
+          if (screenshotData) {
+            const imagePayload = {
+              type: "image",
+              content: `data:image/jpeg;base64,${screenshotData}`
             }
-          })
-          .catch(() => {
-            console.log("error in screenshot flow")
-          })
-          .finally(() => {
-            // Ensure window is shown even if screenshot failed
-            showChatWindow(true)
-          })
-      } else {
-        console.log("no screenshot fn")
-        showChatWindow(true)
-      }
+
+            const sendMessages = () => {
+              chatWindow.webContents.send("backend-push", imagePayload)
+            }
+
+            // If this is the very first load we may need to wait until DOM is ready
+            if (chatWindow.webContents.isLoading()) {
+              chatWindow.webContents.once("dom-ready", sendMessages)
+            } else {
+              sendMessages()
+            }
+          } else {
+            console.log("no image in screenshot response")
+          }
+        })
+        .catch((error) => {
+          console.log("error in screenshot flow:", error)
+        })
+        .finally(() => {
+          // Ensure window is shown even if screenshot failed
+          showChatWindow(true)
+        })
     }
   }
 }
@@ -148,6 +175,8 @@ export function hideChatWindow() {
     }
     chatWindow.blur()
     chatWindow.hide()
+
+    // Keep messages persistent across window hide/show cycles
 
     // In real world, restore focus to the previously active window
     if (previouslyFocusedWindow && !previouslyFocusedWindow.isDestroyed()) {
