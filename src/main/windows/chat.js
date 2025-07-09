@@ -5,8 +5,6 @@ import { is } from "@electron-toolkit/utils"
 // ========== CHAT WINDOW STATE ==========
 let chatWindow = null
 let previouslyFocusedWindow = null
-let osClient = null
-let currentScreenshot = null
 
 // Reusable white square icon (16x16) for Linux where BrowserWindow expects an icon
 const WHITE_ICON_SIZE = 16
@@ -17,9 +15,7 @@ const whiteIcon = nativeImage.createFromBuffer(whiteBuf, {
   height: WHITE_ICON_SIZE
 })
 
-export function createChatWindow(sharedOSClient) {
-  // Use the shared OSClient for screenshot management
-  osClient = sharedOSClient
+export function createChatWindow() {
   // Get screen dimensions
   const { width: screenWidth, height: screenHeight } =
     screen.getPrimaryDisplay().workAreaSize
@@ -59,8 +55,11 @@ export function createChatWindow(sharedOSClient) {
 
   chatWindow.setAlwaysOnTop(true, "screen-saver")
   chatWindow.setVisibleOnAllWorkspaces(true)
+  chatWindow.setContentProtection(false) // Allow normal screen sharing/screenshots
 
-  chatWindow.on("ready-to-show", toggleChatWindow)
+  chatWindow.on("ready-to-show", () => {
+    showChatWindow()
+  })
 
   // Auto-hide chat when it loses focus (user clicked elsewhere)
   chatWindow.on("blur", () => {
@@ -81,76 +80,13 @@ export function createChatWindow(sharedOSClient) {
   return chatWindow
 }
 
-// ========== SCREENSHOT MANAGEMENT ==========
-export async function updateCurrentScreenshot() {
-  if (!osClient) return null
-  
-  try {
-    const result = await osClient.takeScreenshot()
-    if (result && result.image) {
-      currentScreenshot = result.image
-      return currentScreenshot
-    }
-  } catch (error) {
-    console.error("Failed to update screenshot:", error)
-  }
-  return null
-}
-
-export function getCurrentScreenshot() {
-  return currentScreenshot
-}
-
-export function clearCurrentScreenshot() {
-  currentScreenshot = null
-}
-
-export function cleanup() {
-  // Clear local state (osClient is stopped centrally in index.js)
-  osClient = null
-  clearCurrentScreenshot()
-}
-
 export function toggleChatWindow() {
   if (chatWindow) {
-    if (chatWindow.isVisible()) {
-      hideChatWindow()
-    } else {
-      // Take screenshot and show window
-      updateCurrentScreenshot()
-        .then((screenshotData) => {
-          if (screenshotData) {
-            const imagePayload = {
-              type: "image",
-              content: `data:image/jpeg;base64,${screenshotData}`
-            }
-
-            const sendMessages = () => {
-              chatWindow.webContents.send("backend-push", imagePayload)
-            }
-
-            // If this is the very first load we may need to wait until DOM is ready
-            if (chatWindow.webContents.isLoading()) {
-              chatWindow.webContents.once("dom-ready", sendMessages)
-            } else {
-              sendMessages()
-            }
-          } else {
-            console.log("no image in screenshot response")
-          }
-        })
-        .catch((error) => {
-          console.log("error in screenshot flow:", error)
-        })
-        .finally(() => {
-          // Ensure window is shown even if screenshot failed
-          showChatWindow(true)
-        })
-    }
+    chatWindow.isVisible() ? hideChatWindow() : showChatWindow()
   }
 }
 
-export function showChatWindow(shouldFocus = false) {
+export function showChatWindow() {
   if (chatWindow) {
     // Store the currently focused window before showing chat
     const focusedWindow = BrowserWindow.getFocusedWindow()
@@ -162,9 +98,7 @@ export function showChatWindow(shouldFocus = false) {
     chatWindow.restore() // Ensure window is unminimized on Windows
     // Notify renderer to focus the query input when window is shown
     chatWindow.webContents.send("focus-query-input")
-    if (shouldFocus) {
-      chatWindow.focus()
-    }
+    chatWindow.focus()
   }
 }
 
@@ -189,5 +123,11 @@ export function hideChatWindow() {
         app.hide()
       }
     }
+  }
+}
+
+export function setChatWindowContentProtection(enabled) {
+  if (chatWindow) {
+    chatWindow.setContentProtection(enabled)
   }
 }

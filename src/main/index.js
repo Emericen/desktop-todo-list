@@ -35,7 +35,7 @@ app.whenReady().then(() => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-      createChatWindow(osClient)
+      createChatWindow()
     }
   })
 
@@ -51,7 +51,7 @@ app.whenReady().then(() => {
   const openaiClient = new OpenAIClient()
 
   // Initialize Agent with OSClient
-  const agent = new Agent(osClient, hideChatWindow, showChatWindow)
+  const agent = new Agent(osClient)
 
   // Default open or close DevTools by F12 in development
   app.on("browser-window-created", (_, window) => {
@@ -94,9 +94,8 @@ app.whenReady().then(() => {
   })
 
   // ========= WINDOWS AND TRAY =========
-  createChatWindow(osClient)
   createSystemTray({
-    onShowChat: () => showChatWindow(true),
+    onShowChat: () => showChatWindow(),
     onOpenSettings: () => createSettingsWindow(),
     onQuit: () => app.quit()
   })

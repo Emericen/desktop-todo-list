@@ -151,10 +151,8 @@ const tools = [
 ]
 
 export default class Agent {
-  constructor(osClient, hideWindow, showWindow) {
+  constructor(osClient) {
     this.osClient = osClient
-    this.hideWindow = hideWindow
-    this.showWindow = showWindow
 
     this.anthropicClient = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
@@ -301,7 +299,6 @@ export default class Agent {
             }
 
             // User confirmed - hide window and execute
-            this.hideWindow()
             pushEvent({
               type: "text",
               content: `Executing: ${content.input.command}`
@@ -340,8 +337,6 @@ export default class Agent {
                 ]
               })
             }
-
-            this.showWindow()
           } else {
             // Execute custom GUI tools via osClient
             const exec = {
@@ -354,7 +349,7 @@ export default class Agent {
             }[content.name]
 
             if (exec) {
-                            // Show annotated screenshot for click/drag actions
+              // Show annotated screenshot for click/drag actions
               const { x, y, x1, y1 } = content.input
               if (x !== undefined && y !== undefined) {
                 const annotated = await this.osClient.annotateScreenshot(x, y)
@@ -368,7 +363,7 @@ export default class Agent {
                 const annotated = await this.osClient.annotateScreenshot(x1, y1)
                 if (annotated && annotated.image) {
                   pushEvent({
-                    type: "image", 
+                    type: "image",
                     content: `data:image/jpeg;base64,${annotated.image}`
                   })
                 }
@@ -377,7 +372,7 @@ export default class Agent {
               // Ask for confirmation with action description
               const actionDesc = {
                 left_click: `Left click at (${content.input.x}, ${content.input.y})`,
-                right_click: `Right click at (${content.input.x}, ${content.input.y})`, 
+                right_click: `Right click at (${content.input.x}, ${content.input.y})`,
                 double_click: `Double click at (${content.input.x}, ${content.input.y})`,
                 drag: `Drag from (${content.input.x1}, ${content.input.y1}) to (${content.input.x2}, ${content.input.y2})`,
                 type: `Type: "${content.input.text}"`
@@ -398,7 +393,6 @@ export default class Agent {
                 running = false
                 break
               }
-              this.hideWindow()
               await exec(content.input)
               // Record tool result (empty success message)
               this.messages.push({
@@ -430,8 +424,6 @@ export default class Agent {
                   ]
                 })
               }
-
-              this.showWindow()
             }
           }
         }

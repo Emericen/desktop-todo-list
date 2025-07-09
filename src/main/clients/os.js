@@ -1,156 +1,127 @@
-import { join } from "path"
-import { spawn } from "child_process"
-import { is } from "@electron-toolkit/utils"
+import os from "os"
+import fs from "fs"
+import sharp from "sharp"
+import pty from "node-pty"
+import { mouse, keyboard } from "@nut-tree/nut-js"
+import {
+  setChatWindowContentProtection,
+  showChatWindow,
+  hideChatWindow
+} from "../windows/chat.js"
 
-class OSClient {
+export default class OSClient {
   constructor() {
+    mouse.config.autoDelayMs = 3
+    keyboard.config.autoDelayMs = 3
     // instantiate node-pty terminal and keep it alive
   }
 
-  async moveMouse(x, y) {
-    // move mouse to x, y
-  }
-  async clickMouse() {
-    // click mouse
-  }
+  async screenshot() {
+    // Temporarily enable content protection to hide chat window from screenshot
+    setChatWindowContentProtection(true)
 
-  // constructor() {
-  //   this.pyProcess = null
-  //   this.baseURL = "http://127.0.0.1:8765" // Flask service address
-  // }
+    try {
+      if (process.platform === "darwin") {
+        try {
+          const tempPath = path.join(
+            os.tmpdir(),
+            `screenshot-${Date.now()}.jpg`
+          )
 
-  // start() {
-  //   if (this.pyProcess) return // already running
+          await execFile("screencapture", ["-x", "-t", "jpg", tempPath])
 
-  //   if (is.dev) {
-  //     const devScriptPath = join(process.cwd(), "src/services/main.py")
-  //     this.pyProcess = spawn("python", ["-u", devScriptPath], {
-  //       cwd: process.cwd()
-  //     })
-  //   } else {
-  //     const exeName = process.platform === "win32" ? "services.exe" : "services"
-  //     const prodExePath = join(process.resourcesPath, "services", exeName)
-  //     this.pyProcess = spawn(prodExePath, [], {
-  //       cwd: join(process.resourcesPath, "services")
-  //     })
-  //   }
+          const imageBuffer = await fs.promises.readFile(tempPath)
+          await fs.promises.unlink(tempPath)
 
-  //   // Only show logs in dev
-  //   if (is.dev) {
-  //     this.pyProcess.stdout.on("data", (data) => {
-  //       console.log(`[PY] ${data.toString().trim()}`)
-  //     })
-  //     this.pyProcess.stderr.on("data", (data) => {
-  //       console.log(`[PY] ${data.toString().trim()}`)
-  //     })
-  //   }
+          const resizedBuffer = await sharp(imageBuffer)
+            // .resize({ height: 1080 })
+            .resize({ height: 384 })
+            .jpeg({ quality: 80 })
+            .toBuffer()
 
-  //   this.pyProcess.on("close", (code, signal) => {
-  //     console.log(`[PY] exited: code=${code} signal=${signal}`)
-  //     this.pyProcess = null
-  //   })
-  //   this.pyProcess.on("error", (err) => {
-  //     console.error("[PY] error", err)
-  //   })
-  // }
+          const base64 = resizedBuffer.toString("base64")
+          const metadata = await sharp(resizedBuffer).metadata()
 
-  // stop() {
-  //   if (this.pyProcess) {
-  //     this.pyProcess.kill()
-  //     this.pyProcess = null
-  //   }
-  // }
+          lastScreenshot = {
+            base64,
+            width: metadata.width,
+            height: metadata.height,
+            timestamp: Date.now()
+          }
 
-  // --- Private HTTP helpers ---
-  // async _post(path, body) {
-  //   const res = await fetch(`${this.baseURL}${path}`, {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify(body)
-  //   })
-  //   return res.json()
-  // }
-
-  // async _get(path) {
-  //   const res = await fetch(`${this.baseURL}${path}`)
-  //   return res.json()
-  // }
-
-  // --- Public API methods ---
-  echo = async (message) => this._post("/echo", { message })
-  moveMouse = async (x, y) => this._post("/position", { x, y })
-  clickMouse = async () => this._post("/click", {})
-  leftClick = async (x, y) => this._post("/left_click", { x, y })
-  rightClick = async (x, y) => this._post("/right_click", { x, y })
-  middleClick = async (x, y) => this._post("/middle_click", { x, y })
-  doubleClick = async (x, y) => this._post("/double_click", { x, y })
-  tripleClick = async (x, y) => this._post("/triple_click", { x, y })
-  leftMouseDown = async (x, y) => this._post("/left_mouse_down", { x, y })
-  leftMouseUp = async (x, y) => this._post("/left_mouse_up", { x, y })
-  leftClickDrag = async (x1, y1, x2, y2) =>
-    this._post("/left_click_drag", { x1, y1, x2, y2 })
-  typeText = async (text) => this._post("/type", { text })
-  pressKey = async (key) => this._post("/key", { key })
-  holdKey = async (key) => this._post("/hold_key", { key })
-  scroll = async (x, y, direction, amount) =>
-    this._post("/scroll", { x, y, direction, amount })
-  wait = async (duration) =>
-    new Promise((resolve) => setTimeout(resolve, duration))
-  takeScreenshot = async () => this._get("/screenshot")
-  annotateScreenshot = async (x, y) => this._post("/annotate", { x, y })
-
-  // Execute shell commands based on platform
-  executeCommand = async (command) => {
-    return new Promise((resolve, reject) => {
-      let shell, shellArgs
-
-      if (process.platform === "win32") {
-        shell = "cmd"
-        shellArgs = ["/c", command]
-      } else {
-        shell = "/bin/bash"
-        shellArgs = ["-c", command]
+          return {
+            success: true,
+            base64,
+            width: metadata.width,
+            height: metadata.height
+          }
+        } catch (error) {
+          console.error("Failed to capture and resize screenshot:", error)
+          return { success: false, error: error.message }
+        }
       }
 
-      console.log(`Executing: ${shell} ${shellArgs.join(" ")}`)
-
-      const childProcess = spawn(shell, shellArgs, {
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: false
-      })
-
-      let stdout = ""
-      let stderr = ""
-
-      childProcess.stdout.on("data", (data) => {
-        stdout += data.toString()
-      })
-
-      childProcess.stderr.on("data", (data) => {
-        stderr += data.toString()
-      })
-
-      childProcess.on("close", (code) => {
-        resolve({
-          success: code === 0,
-          exitCode: code,
-          stdout: stdout.trim(),
-          stderr: stderr.trim(),
-          command: command
+      try {
+        const sources = await desktopCapturer.getSources({
+          types: ["screen"],
+          thumbnailSize: {
+            width: 1920,
+            height: 1080
+          }
         })
-      })
 
-      childProcess.on("error", (error) => {
-        reject(error)
-      })
+        if (sources.length === 0) {
+          throw new Error("No screen sources available")
+        }
+        const source = sources[0]
+        const buffer = source.thumbnail.toJPEG(70)
+        const base64 = buffer.toString("base64")
+        const size = source.thumbnail.getSize()
 
-      // Set timeout to prevent hanging
-      setTimeout(() => {
-        childProcess.kill("SIGTERM")
-        reject(new Error("Command timed out after 30 seconds"))
-      }, 30000)
-    })
+        return {
+          success: true,
+          base64,
+          width: size.width,
+          height: size.height
+        }
+      } catch (error) {
+        console.error(
+          "Failed to capture screenshot using desktopCapturer:",
+          error
+        )
+        return {
+          success: false,
+          error: error.message
+        }
+      }
+    } finally {
+      // Always restore content protection to false to allow normal screen sharing
+      setChatWindowContentProtection(false)
+    }
+  }
+
+  async executeCommand(command) {
+    // execute command
+  }
+
+  async rightClick(x, y) {
+    hideChatWindow()
+    await mouse.move({ x: x, y: y })
+    await mouse.rightClick()
+    showChatWindow()
+  }
+
+  async leftClick(x, y) {
+    hideChatWindow()
+    await mouse.move({ x: x, y: y })
+    await mouse.leftClick()
+    showChatWindow()
+  }
+
+  async typeText(x, y, text) {
+    hideChatWindow()
+    await this.rightClick(x, y)
+    await keyboard.type(text)
+    showChatWindow()
   }
 }
-
-export default OSClient
