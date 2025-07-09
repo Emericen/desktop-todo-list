@@ -4,66 +4,77 @@ import { is } from "@electron-toolkit/utils"
 
 class OSClient {
   constructor() {
-    this.pyProcess = null
-    this.baseURL = "http://127.0.0.1:8765" // Flask service address
+    // instantiate node-pty terminal and keep it alive
   }
 
-  start() {
-    if (this.pyProcess) return // already running
-
-    if (is.dev) {
-      const devScriptPath = join(process.cwd(), "src/services/main.py")
-      this.pyProcess = spawn("python", ["-u", devScriptPath], {
-        cwd: process.cwd()
-      })
-    } else {
-      const exeName = process.platform === "win32" ? "services.exe" : "services"
-      const prodExePath = join(process.resourcesPath, "services", exeName)
-      this.pyProcess = spawn(prodExePath, [], {
-        cwd: join(process.resourcesPath, "services")
-      })
-    }
-
-    // Only show logs in dev
-    if (is.dev) {
-      this.pyProcess.stdout.on("data", (data) => {
-        console.log(`[PY] ${data.toString().trim()}`)
-      })
-      this.pyProcess.stderr.on("data", (data) => {
-        console.log(`[PY] ${data.toString().trim()}`)
-      })
-    }
-
-    this.pyProcess.on("close", (code, signal) => {
-      console.log(`[PY] exited: code=${code} signal=${signal}`)
-      this.pyProcess = null
-    })
-    this.pyProcess.on("error", (err) => {
-      console.error("[PY] error", err)
-    })
+  async moveMouse(x, y) {
+    // move mouse to x, y
+  }
+  async clickMouse() {
+    // click mouse
   }
 
-  stop() {
-    if (this.pyProcess) {
-      this.pyProcess.kill()
-      this.pyProcess = null
-    }
-  }
+  // constructor() {
+  //   this.pyProcess = null
+  //   this.baseURL = "http://127.0.0.1:8765" // Flask service address
+  // }
+
+  // start() {
+  //   if (this.pyProcess) return // already running
+
+  //   if (is.dev) {
+  //     const devScriptPath = join(process.cwd(), "src/services/main.py")
+  //     this.pyProcess = spawn("python", ["-u", devScriptPath], {
+  //       cwd: process.cwd()
+  //     })
+  //   } else {
+  //     const exeName = process.platform === "win32" ? "services.exe" : "services"
+  //     const prodExePath = join(process.resourcesPath, "services", exeName)
+  //     this.pyProcess = spawn(prodExePath, [], {
+  //       cwd: join(process.resourcesPath, "services")
+  //     })
+  //   }
+
+  //   // Only show logs in dev
+  //   if (is.dev) {
+  //     this.pyProcess.stdout.on("data", (data) => {
+  //       console.log(`[PY] ${data.toString().trim()}`)
+  //     })
+  //     this.pyProcess.stderr.on("data", (data) => {
+  //       console.log(`[PY] ${data.toString().trim()}`)
+  //     })
+  //   }
+
+  //   this.pyProcess.on("close", (code, signal) => {
+  //     console.log(`[PY] exited: code=${code} signal=${signal}`)
+  //     this.pyProcess = null
+  //   })
+  //   this.pyProcess.on("error", (err) => {
+  //     console.error("[PY] error", err)
+  //   })
+  // }
+
+  // stop() {
+  //   if (this.pyProcess) {
+  //     this.pyProcess.kill()
+  //     this.pyProcess = null
+  //   }
+  // }
 
   // --- Private HTTP helpers ---
-  async _post(path, body) {
-    const res = await fetch(`${this.baseURL}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    })
-    return res.json()
-  }
+  // async _post(path, body) {
+  //   const res = await fetch(`${this.baseURL}${path}`, {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify(body)
+  //   })
+  //   return res.json()
+  // }
 
-  async _get(path) {
-    const res = await fetch(`${this.baseURL}${path}`)
-    return res.json()
-  }
+  // async _get(path) {
+  //   const res = await fetch(`${this.baseURL}${path}`)
+  //   return res.json()
+  // }
 
   // --- Public API methods ---
   echo = async (message) => this._post("/echo", { message })
