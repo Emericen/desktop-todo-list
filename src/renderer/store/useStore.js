@@ -84,6 +84,10 @@ const useStore = create((set, get) => ({
       let isFirstEvent = true
 
       // Send streaming query with event handler
+      if (!window.api || !window.api.sendQuery) {
+        throw new Error("API not available - preload script may not have loaded")
+      }
+      
       await window.api.sendQuery(
         {
           query: query, // Just send the query text

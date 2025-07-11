@@ -1,8 +1,7 @@
 import os from "os"
 import fs from "fs"
 import sharp from "sharp"
-import pty from "node-pty"
-import { mouse, keyboard } from "@nut-tree/nut-js"
+import { mouse, keyboard } from "@nut-tree-fork/nut-js"
 import {
   setChatWindowContentProtection,
   showChatWindow,
@@ -120,7 +119,8 @@ export default class OSClient {
 
   async typeText(x, y, text) {
     hideChatWindow()
-    await this.rightClick(x, y)
+    await mouse.move({ x: x, y: y })
+    await mouse.leftClick()
     await keyboard.type(text)
     showChatWindow()
   }

@@ -228,6 +228,57 @@ export default class Agent {
     }
   }
 
+  async query(query, pushEvent) {
+    // Check if API key exists
+    if (!process.env.ANTHROPIC_API_KEY) {
+      pushEvent({
+        type: "text",
+        content:
+          "Error: Anthropic API key not found. Please add it in settings."
+      })
+      return { success: false, error: "Missing API key" }
+    }
+
+    try {
+      // Stream response from Anthropic API
+      const stream = this.anthropicClient.messages.stream({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2048,
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: query
+          }
+        ]
+      })
+
+      stream.on("text", (text) => {
+        pushEvent({
+          type: "text",
+          content: text
+        })
+      })
+
+      stream.on("error", (error) => {
+        pushEvent({
+          type: "text",
+          content: `Stream error: ${error.message}`
+        })
+      })
+
+      // Wait for the stream to complete
+      await stream.done()
+      return { success: true }
+    } catch (error) {
+      pushEvent({
+        type: "text",
+        content: `Error: ${error.message}`
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
   async run(query, initialScreenshot, pushEvent) {
     this.messages.push({
       role: "user",
@@ -246,13 +297,6 @@ export default class Agent {
 
     let running = true
     while (running) {
-      // console.log(
-      //   `------------- ${JSON.stringify(
-      //     this.truncateBase64(this.messages),
-      //     null,
-      //     2
-      //   )} -------------`
-      // )
       const response = await this.anthropicClient.beta.messages.create({
         model: "claude-sonnet-4-20250514",
         tools: tools,

@@ -1,6 +1,6 @@
 import pty from "node-pty"
 
-export default class Terminal {
+class Terminal {
   constructor() {
     this.terminal = pty.spawn(
       process.platform === "win32" ? "powershell.exe" : "bash",
@@ -110,19 +110,20 @@ export default class Terminal {
   }
 }
 
-// const terminal = new Terminal()
+const terminal = new Terminal()
 
-// // Wait for terminal to be ready and execute command
-// // setTimeout(async () => {
-// // console.log("Executing ls command...")
-// const result1 = await terminal.execute(
-//   "cd ~/desktop/workfile/assistant-ui/desktop"
-// )
-// const result2 = await terminal.execute("npm run dev")
-// console.log(result1)
-// console.log(result2)
-// // console.log("Full output:", terminal.getOutput())
+// Wait for terminal to be ready and execute command
+// setTimeout(async () => {
+// console.log("Executing ls command...")
+const result1 = await terminal.execute(
+  "cd ~/desktop/workfile/assistant-ui/desktop"
+)
+const result2 = await terminal.execute("npm run dev")
+console.log(result1)
+console.log(result2)
+// console.log("Full output:", terminal.getOutput())
 
-// // Clean exit
-// terminal.destroy()
-// process.exit(0)
+// Clean exit
+terminal.destroy()
+process.exit(0)
+// }, 1000)

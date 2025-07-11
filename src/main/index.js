@@ -5,10 +5,7 @@ import dotenv from "dotenv"
 import {
   createChatWindow,
   showChatWindow,
-  toggleChatWindow,
-  hideChatWindow,
-  getCurrentScreenshot,
-  cleanup
+  toggleChatWindow
 } from "./windows/chat.js"
 import { createSettingsWindow } from "./windows/settings.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
@@ -42,9 +39,8 @@ app.whenReady().then(() => {
   // Register global shortcuts (can later be loaded from settings)
   registerShortcuts({ "Alt+P": toggleChatWindow })
 
-  // Create and start OS client (shared by Agent and chat window)
+  // Create OS client (shared by Agent and chat window)
   const osClient = new OSClient()
-  osClient.start()
 
   // Initialize clients
   const anthropicClient = new AnthropicClient()
@@ -78,9 +74,7 @@ app.whenReady().then(() => {
       event.sender.send("response-event", eventData)
     }
 
-    const screenshot = getCurrentScreenshot()
-    console.log("SIMPLIFIED PAYLOAD:", JSON.stringify(payload, null, 2))
-    return await agent.run(payload.query, screenshot, pushEvent)
+    return await agent.query(payload.query, pushEvent)
   })
 
   ipcMain.handle("transcribe", async (_event, payload) => {
@@ -94,16 +88,12 @@ app.whenReady().then(() => {
   })
 
   // ========= WINDOWS AND TRAY =========
+  createChatWindow() // Create window at startup
+
   createSystemTray({
     onShowChat: () => showChatWindow(),
     onOpenSettings: () => createSettingsWindow(),
     onQuit: () => app.quit()
-  })
-
-  // ========= APP CLEANUP =========
-  app.on("before-quit", () => {
-    osClient.stop()
-    cleanup()
   })
 
   app.on("will-quit", () => {

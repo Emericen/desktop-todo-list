@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "An Electron application with React",
   "main": "./out/main/index.js",
+  "type": "module",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
   "scripts": {
@@ -47,6 +48,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^35.1.5",
     "electron-builder": "^25.1.8",
+    "electron-rebuild": "^3.2.9",
     "electron-vite": "^3.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

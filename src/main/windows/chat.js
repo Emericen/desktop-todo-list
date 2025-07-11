@@ -16,6 +16,11 @@ const whiteIcon = nativeImage.createFromBuffer(whiteBuf, {
 })
 
 export function createChatWindow() {
+  if (chatWindow) {
+    showChatWindow()
+    return chatWindow
+  }
+
   // Get screen dimensions
   const { width: screenWidth, height: screenHeight } =
     screen.getPrimaryDisplay().workAreaSize
@@ -46,7 +51,7 @@ export function createChatWindow() {
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? { icon: whiteIcon } : {}),
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      preload: join(__dirname, "../preload/index.mjs"),
       sandbox: false
     },
     frame: false,
