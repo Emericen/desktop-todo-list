@@ -254,15 +254,89 @@ export default class Agent {
     }
   }
 
-  async query(query, pushEvent) {
+  async query(query, pushEvent, hardcode = false) {
     // Check if API key exists
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!hardcode && !process.env.ANTHROPIC_API_KEY) {
       pushEvent({
         type: "text",
         content:
           "Error: Anthropic API key not found. Please add it in settings."
       })
       return { success: false, error: "Missing API key" }
+    }
+
+    // Hardcoded response for testing
+    if (hardcode) {
+      try {
+        // 3. Terminal command message
+        pushEvent({
+          type: "text",
+          content: "3. Terminal command message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        pushEvent({
+          type: "bash",
+          content:
+            "ls -la /home/user && cd desktop/workfile && ls -la && npm install && npm run dev"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+
+        // 4. Error message
+        pushEvent({
+          type: "text",
+          content: "4. Error message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        pushEvent({
+          type: "error",
+          content: "This is an example error message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // 5. Image message
+        pushEvent({
+          type: "text",
+          content: "5. Image message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        pushEvent({
+          type: "image",
+          content:
+            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzQ0NzBmZiIgcng9IjEwIi8+CiAgPHRleHQgeD0iMTAwIiB5PSI1NSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TYW1wbGUgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=="
+        })
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // 6. Confirmation message
+        pushEvent({
+          type: "confirmation",
+          content: "Do you want to continue with the demo?"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // 7. Final text message
+        pushEvent({
+          type: "text",
+          content: "7. Final text message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        pushEvent({
+          type: "text",
+          content:
+            "That's all the different message types! Pretty cool, right? 🎉"
+        })
+
+        return { success: true }
+      } catch (error) {
+        pushEvent({
+          type: "text",
+          content: `Hardcoded streaming error: ${error.message}`
+        })
+        return { success: false, error: error.message }
+      }
     }
 
     try {
