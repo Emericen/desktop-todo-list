@@ -79,3 +79,5 @@ build/
 .env
 # documents for cursor
 documents/
+
+experiments/
