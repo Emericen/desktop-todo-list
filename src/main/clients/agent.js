@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import dotenv from "dotenv"
 import Terminal from "./terminal.js"
+import IOClient from "./io.js"
 dotenv.config()
 
 const baseSystem = `You are an AI assistant that helps users accomplish tasks on their computer using command-line tools.
@@ -151,8 +152,8 @@ const tools = [
 ]
 
 export default class Agent {
-  constructor(osClient) {
-    this.osClient = osClient
+  constructor() {
+    this.ioClient = new IOClient()
 
     this.anthropicClient = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
@@ -225,6 +226,31 @@ export default class Agent {
     if (this.pendingConfirmation) {
       this.pendingConfirmation(confirmed)
       this.pendingConfirmation = null
+    }
+  }
+
+  async takeScreenshot(pushEvent) {
+    try {
+      const screenshot = await this.ioClient.takeScreenshot()
+      if (screenshot.success) {
+        pushEvent({
+          type: "image",
+          content: `data:image/jpeg;base64,${screenshot.base64}`
+        })
+        return { success: true }
+      } else {
+        pushEvent({
+          type: "text",
+          content: `Screenshot failed: ${screenshot.error}`
+        })
+        return { success: false, error: screenshot.error }
+      }
+    } catch (error) {
+      pushEvent({
+        type: "text",
+        content: `Screenshot error: ${error.message}`
+      })
+      return { success: false, error: error.message }
     }
   }
 
@@ -365,7 +391,7 @@ export default class Agent {
             await new Promise((resolve) => setTimeout(resolve, 800))
 
             // Take screenshot after command execution
-            const screenshot = await this.osClient.takeScreenshot()
+            const screenshot = await this.ioClient.takeScreenshot()
             if (screenshot && screenshot.image) {
               this.messages.push({
                 role: "user",
@@ -382,21 +408,21 @@ export default class Agent {
               })
             }
           } else {
-            // Execute custom GUI tools via osClient
+            // Execute custom GUI tools via ioClient
             const exec = {
-              left_click: ({ x, y }) => this.osClient.leftClick(x, y),
-              right_click: ({ x, y }) => this.osClient.rightClick(x, y),
-              double_click: ({ x, y }) => this.osClient.doubleClick(x, y),
+              left_click: ({ x, y }) => this.ioClient.leftClick(x, y),
+              right_click: ({ x, y }) => this.ioClient.rightClick(x, y),
+              double_click: ({ x, y }) => this.ioClient.doubleClick(x, y),
               drag: ({ x1, y1, x2, y2 }) =>
-                this.osClient.leftClickDrag(x1, y1, x2, y2),
-              type: ({ text }) => this.osClient.typeText(text)
+                this.ioClient.leftClickDrag(x1, y1, x2, y2),
+              type: ({ text }) => this.ioClient.typeText(text)
             }[content.name]
 
             if (exec) {
               // Show annotated screenshot for click/drag actions
               const { x, y, x1, y1 } = content.input
               if (x !== undefined && y !== undefined) {
-                const annotated = await this.osClient.annotateScreenshot(x, y)
+                const annotated = await this.ioClient.annotateScreenshot(x, y)
                 if (annotated && annotated.image) {
                   pushEvent({
                     type: "image",
@@ -404,7 +430,7 @@ export default class Agent {
                   })
                 }
               } else if (x1 !== undefined && y1 !== undefined) {
-                const annotated = await this.osClient.annotateScreenshot(x1, y1)
+                const annotated = await this.ioClient.annotateScreenshot(x1, y1)
                 if (annotated && annotated.image) {
                   pushEvent({
                     type: "image",
@@ -452,7 +478,7 @@ export default class Agent {
 
               await new Promise((resolve) => setTimeout(resolve, 800))
 
-              const screenshot = await this.osClient.takeScreenshot()
+              const screenshot = await this.ioClient.takeScreenshot()
               if (screenshot && screenshot.image) {
                 this.messages.push({
                   role: "user",

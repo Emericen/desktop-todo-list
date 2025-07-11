@@ -9,7 +9,6 @@ import {
 } from "./windows/chat.js"
 import { createSettingsWindow } from "./windows/settings.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
-import OSClient from "./clients/os.js"
 import AnthropicClient from "./clients/anthropic.js"
 import OpenAIClient from "./clients/openai.js"
 import { registerShortcuts, unregisterAllShortcuts } from "./shortcuts.js"
@@ -39,15 +38,12 @@ app.whenReady().then(() => {
   // Register global shortcuts (can later be loaded from settings)
   registerShortcuts({ "Alt+P": toggleChatWindow })
 
-  // Create OS client (shared by Agent and chat window)
-  const osClient = new OSClient()
-
   // Initialize clients
   const anthropicClient = new AnthropicClient()
   const openaiClient = new OpenAIClient()
 
-  // Initialize Agent with OSClient
-  const agent = new Agent(osClient)
+  // Initialize Agent (creates its own IOClient internally)
+  const agent = new Agent()
 
   // Default open or close DevTools by F12 in development
   app.on("browser-window-created", (_, window) => {
@@ -74,6 +70,11 @@ app.whenReady().then(() => {
       event.sender.send("response-event", eventData)
     }
 
+    // Simple screenshot command
+    if (payload.query.toLowerCase().trim() === "screenshot") {
+      return await agent.takeScreenshot(pushEvent)
+    }
+
     return await agent.query(payload.query, pushEvent)
   })
 
@@ -85,6 +86,14 @@ app.whenReady().then(() => {
   ipcMain.handle("confirm-command", async (_event, confirmed) => {
     agent.handleConfirmation(confirmed)
     return { success: true }
+  })
+
+  ipcMain.handle("take-screenshot", async (event) => {
+    const pushEvent = (eventData) => {
+      event.sender.send("response-event", eventData)
+    }
+
+    return await agent.takeScreenshot(pushEvent)
   })
 
   // ========= WINDOWS AND TRAY =========

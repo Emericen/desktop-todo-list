@@ -1,6 +1,10 @@
 import os from "os"
 import fs from "fs"
+import path from "path"
+import { execFile } from "child_process"
+import { promisify } from "util"
 import sharp from "sharp"
+import { desktopCapturer } from "electron"
 import { mouse, keyboard } from "@nut-tree-fork/nut-js"
 import {
   setChatWindowContentProtection,
@@ -8,14 +12,16 @@ import {
   hideChatWindow
 } from "../windows/chat.js"
 
-export default class OSClient {
+const execFileAsync = promisify(execFile)
+let lastScreenshot = null
+
+export default class IOClient {
   constructor() {
     mouse.config.autoDelayMs = 3
     keyboard.config.autoDelayMs = 3
-    // instantiate node-pty terminal and keep it alive
   }
 
-  async screenshot() {
+  async takeScreenshot() {
     // Temporarily enable content protection to hide chat window from screenshot
     setChatWindowContentProtection(true)
 
@@ -27,7 +33,7 @@ export default class OSClient {
             `screenshot-${Date.now()}.jpg`
           )
 
-          await execFile("screencapture", ["-x", "-t", "jpg", tempPath])
+          await execFileAsync("screencapture", ["-x", "-t", "jpg", tempPath])
 
           const imageBuffer = await fs.promises.readFile(tempPath)
           await fs.promises.unlink(tempPath)
@@ -99,10 +105,6 @@ export default class OSClient {
     }
   }
 
-  async executeCommand(command) {
-    // execute command
-  }
-
   async rightClick(x, y) {
     hideChatWindow()
     await mouse.move({ x: x, y: y })
@@ -117,11 +119,57 @@ export default class OSClient {
     showChatWindow()
   }
 
+  async doubleClick(x, y) {
+    hideChatWindow()
+    await mouse.move({ x: x, y: y })
+    await mouse.doubleClick()
+    showChatWindow()
+  }
+
+  async leftClickDrag(x1, y1, x2, y2) {
+    hideChatWindow()
+    await mouse.move({ x: x1, y: y1 })
+    await mouse.pressButton(0) // Left button down
+    await mouse.move({ x: x2, y: y2 })
+    await mouse.releaseButton(0) // Left button up
+    showChatWindow()
+  }
+
   async typeText(x, y, text) {
     hideChatWindow()
     await mouse.move({ x: x, y: y })
     await mouse.leftClick()
     await keyboard.type(text)
     showChatWindow()
+  }
+
+  async annotateScreenshot(x, y) {
+    // Take a screenshot and add a red dot at the specified coordinates
+    const screenshot = await this.takeScreenshot()
+    if (!screenshot.success) {
+      return screenshot
+    }
+
+    try {
+      // Create a simple annotation (red circle) at the coordinates
+      const annotated = await sharp(Buffer.from(screenshot.base64, 'base64'))
+        .composite([{
+          input: Buffer.from(`<svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="red" opacity="0.7"/></svg>`),
+          top: Math.max(0, y - 10),
+          left: Math.max(0, x - 10)
+        }])
+        .jpeg({ quality: 80 })
+        .toBuffer()
+
+      return {
+        success: true,
+        image: annotated.toString('base64'),
+        width: screenshot.width,
+        height: screenshot.height
+      }
+    } catch (error) {
+      console.error("Failed to annotate screenshot:", error)
+      return { success: false, error: error.message }
+    }
   }
 }
