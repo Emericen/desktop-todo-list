@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Check, X, MousePointer, Terminal, Type, Move, Hand } from "lucide-react"
+import { Check, X, Terminal, CornerDownLeft, Delete } from "lucide-react"
 import useStore from "@/store/useStore"
 import ReactMarkdown from "react-markdown"
 
@@ -70,119 +70,150 @@ export function TextMessage({ message }) {
   )
 }
 
-export function ActionMessage({ message }) {
-  const getActionIcon = (action) => {
-    switch (action) {
-      case "left_click":
-      case "right_click":
-      case "double_click":
-        return <MousePointer className="h-4 w-4" />
-      case "type":
-        return <Type className="h-4 w-4" />
-      case "drag":
-        return <Move className="h-4 w-4" />
-      case "bash":
-        return <Terminal className="h-4 w-4" />
-      default:
-        return <Hand className="h-4 w-4" />
-    }
-  }
+export function TerminalMessage({ message }) {
+  const [isExecuted, setIsExecuted] = useState(message.executed || false)
+  const [result, setResult] = useState(message.result || null)
+  const { setAwaitingUserResponse } = useStore()
 
-  const getActionDescription = (message) => {
-    switch (message.action) {
-      case "left_click":
-        return `Left clicked at (${message.x}, ${message.y})`
-      case "right_click":
-        return `Right clicked at (${message.x}, ${message.y})`
-      case "double_click":
-        return `Double clicked at (${message.x}, ${message.y})`
-      case "drag":
-        return `Dragged from (${message.x1}, ${message.y1}) to (${message.x2}, ${message.y2})`
-      case "type":
-        return `Typed: "${message.text}"`
-      case "bash":
-        return `Executed command: ${message.command}`
-      default:
-        return `Unknown action: ${message.action}`
-    }
-  }
-
-  return (
-    <div className="w-full group">
-      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-800">
-        {getActionIcon(message.action)}
-        <span className="text-sm font-medium">{getActionDescription(message)}</span>
-      </div>
-    </div>
-  )
-}
-
-export function BashResultMessage({ message }) {
-  return (
-    <div className="w-full group">
-      <div className={`px-3 py-2 rounded-lg border ${message.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-        <div className="flex items-center gap-2 mb-2">
-          <Terminal className="h-4 w-4" />
-          <span className={`text-sm font-medium ${message.success ? 'text-green-800' : 'text-red-800'}`}>
-            Command {message.success ? 'completed' : 'failed'}
-          </span>
-        </div>
-        {message.output && (
-          <pre className="text-xs bg-gray-900 text-green-400 p-2 rounded overflow-x-auto">
-            {message.output}
-          </pre>
-        )}
-        {message.error && (
-          <pre className="text-xs bg-gray-900 text-red-400 p-2 rounded overflow-x-auto mt-2">
-            {message.error}
-          </pre>
-        )}
-      </div>
-    </div>
-  )
-}
-
-export function BashMessage({ message }) {
   const handleConfirm = async () => {
+    setIsExecuted(true)
+    setAwaitingUserResponse(false)
+    // Send confirmation to backend
     await window.api.confirmCommand(true)
   }
 
   const handleCancel = async () => {
+    setAwaitingUserResponse(false)
     await window.api.confirmCommand(false)
   }
 
+  // Set awaiting response when component mounts and not executed
+  useEffect(() => {
+    if (!isExecuted && !message.executed) {
+      setAwaitingUserResponse(true)
+    }
+
+    // Cleanup: reset awaiting response when component unmounts
+    return () => {
+      if (!isExecuted && !message.executed) {
+        setAwaitingUserResponse(false)
+      }
+    }
+  }, [])
+
+  // Add keyboard event listener only if not executed
+  useEffect(() => {
+    if (isExecuted) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault()
+        handleConfirm()
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        handleCancel()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [isExecuted])
+
+  // Update result when message changes
+  useEffect(() => {
+    if (message.result) {
+      setResult(message.result)
+      setIsExecuted(true)
+      setAwaitingUserResponse(false)
+    }
+  }, [message.result])
+
   return (
     <div className="w-full group">
-      <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <div className="flex items-center gap-2 mb-3">
-          <Terminal className="h-4 w-4 text-yellow-800" />
-          <span className="text-sm font-medium text-yellow-800">
-            Execute this command?
-          </span>
-        </div>
-        <div className="bg-gray-900 text-green-400 p-2 rounded mb-3 font-mono text-sm">
-          {message.content}
-        </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="default"
-            onClick={handleConfirm}
-            className="h-8 px-4"
-          >
-            <Check className="h-4 w-4 mr-1" />
-            Execute
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleCancel}
-            className="h-8 px-4"
-          >
-            <X className="h-4 w-4 mr-1" />
-            Cancel
-          </Button>
-        </div>
+      <div className="px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg">
+        {!isExecuted ? (
+          // Before execution - show command with buttons
+          <>
+            <div className="flex items-center gap-2 mb-3">
+              <Terminal className="h-4 w-4 text-yellow-400" />
+              <span className="text-sm font-medium text-yellow-400">
+                Execute this command?
+              </span>
+            </div>
+            <div className="bg-gray-800 text-green-400 p-2 rounded mb-3 font-mono text-sm">
+              {message.content}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleConfirm}
+                className="h-8 px-4 bg-white text-black border-white hover:bg-gray-100"
+              >
+                Execute
+                <CornerDownLeft className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCancel}
+                className="h-8 px-4 bg-gray-900 text-white border-gray-700 hover:bg-gray-800 hover:border-gray-600"
+              >
+                Cancel
+                <Delete className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+          </>
+        ) : (
+          // After execution - show command + results
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <Terminal className="h-4 w-4 text-green-400" />
+              <span className="text-sm font-medium text-green-400">
+                Terminal
+              </span>
+            </div>
+            {/* Command */}
+            <div className="text-gray-400 font-mono text-sm mb-2">
+              $ {message.content}
+            </div>
+            {/* Results */}
+            {result && (
+              <>
+                {result.output && (
+                  <pre className="text-green-400 font-mono text-sm whitespace-pre-wrap bg-gray-800 p-2 rounded mb-2">
+                    {result.output}
+                  </pre>
+                )}
+                {result.error && (
+                  <pre className="text-red-400 font-mono text-sm whitespace-pre-wrap bg-gray-800 p-2 rounded mb-2">
+                    {result.error}
+                  </pre>
+                )}
+                {/* Status indicator */}
+                <div className="flex items-center gap-2 text-xs">
+                  {result.success ? (
+                    <Check className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <X className="h-3 w-3 text-red-500" />
+                  )}
+                  <span
+                    className={
+                      result.success ? "text-green-400" : "text-red-400"
+                    }
+                  >
+                    {result.success ? "Command completed" : "Command failed"}
+                  </span>
+                  {result.executionTime && (
+                    <span className="text-gray-500">
+                      ({result.executionTime}ms)
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
@@ -215,8 +246,57 @@ export function ImageMessage({ message }) {
   )
 }
 
-export function ChoiceMessage({ message, index }) {
-  const { selectChoice } = useStore()
+export function ConfirmationMessage({ message, index }) {
+  const { selectChoice, setAwaitingUserResponse } = useStore()
+
+  const handleApprove = () => {
+    selectChoice(index, "approved")
+    setAwaitingUserResponse(false)
+  }
+
+  const handleReject = () => {
+    selectChoice(index, "rejected")
+    setAwaitingUserResponse(false)
+  }
+
+  // Set awaiting response when component mounts and not answered
+  useEffect(() => {
+    if (!message.answered) {
+      setAwaitingUserResponse(true)
+    }
+
+    // Cleanup: reset awaiting response when component unmounts
+    return () => {
+      if (!message.answered) {
+        setAwaitingUserResponse(false)
+      }
+    }
+  }, [])
+
+  // Update awaiting response when message is answered
+  useEffect(() => {
+    if (message.answered) {
+      setAwaitingUserResponse(false)
+    }
+  }, [message.answered])
+
+  // Add keyboard event listener
+  useEffect(() => {
+    if (message.answered) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault()
+        handleApprove()
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        handleReject()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [index, message.answered])
 
   return (
     <div
@@ -224,44 +304,44 @@ export function ChoiceMessage({ message, index }) {
         message.answered ? "opacity-50" : ""
       } transition-opacity duration-200`}
     >
-      <blockquote className="border-l-4 border-blue-500 pl-4 italic">
-        <div className="flex items-center gap-3">
-          <p className="text-base font-medium text-foreground">
-            {message.content}
-          </p>
-          <div className="flex gap-2 items-center">
-            <div
-              className={`flex items-center mr-2 w-4 ${
-                message.answered ? "visible" : "invisible"
-              }`}
-            >
-              {message.answered === "approved" ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : message.answered === "rejected" ? (
-                <X className="h-4 w-4 text-red-600" />
-              ) : (
-                <div className="h-4 w-4" />
-              )}
-            </div>
-            <Button
-              size="sm"
-              variant="default"
-              onClick={() => selectChoice(index, "approved")}
-              disabled={message.answered !== null}
-              className="h-8 px-4"
-            >
-              YES
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => selectChoice(index, "rejected")}
-              disabled={message.answered !== null}
-              className="h-8 px-4"
-            >
-              NO
-            </Button>
+      <blockquote className="border-l-4 border-blue-500 pl-4">
+        <p className="text-base font-medium text-foreground mb-3">
+          {message.content}
+        </p>
+        <div className="flex justify-end gap-2 items-center">
+          <div
+            className={`flex items-center mr-2 w-4 ${
+              message.answered ? "visible" : "invisible"
+            }`}
+          >
+            {message.answered === "approved" ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : message.answered === "rejected" ? (
+              <X className="h-4 w-4 text-red-600" />
+            ) : (
+              <div className="h-4 w-4" />
+            )}
           </div>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleApprove}
+            disabled={message.answered !== null}
+            className="h-8 px-4"
+          >
+            YES
+            <CornerDownLeft className="h-3 w-3 ml-1" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleReject}
+            disabled={message.answered !== null}
+            className="h-8 px-4"
+          >
+            NO
+            <Delete className="h-3 w-3 ml-1" />
+          </Button>
         </div>
       </blockquote>
     </div>

@@ -58,6 +58,18 @@ const useStore = create((set, get) => ({
 
   setAwaitingUserResponse: (val) => set({ awaitingUserResponse: val }),
 
+  selectChoice: (index, choice) =>
+    set((state) => {
+      const updatedMessages = [...state.messages]
+      if (updatedMessages[index] && updatedMessages[index].type === "confirmation") {
+        updatedMessages[index] = {
+          ...updatedMessages[index],
+          answered: choice
+        }
+      }
+      return { messages: updatedMessages }
+    }),
+
   submitQuery: async (rawQuery) => {
     const query = rawQuery.trim()
     if (!query) return

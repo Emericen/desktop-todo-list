@@ -39,7 +39,26 @@ const api = {
   transcribeAudio: (payload) => ipcRenderer.invoke("transcribe", payload),
 
   // Confirm or cancel command execution
-  confirmCommand: (confirmed) => ipcRenderer.invoke("confirm-command", confirmed)
+  confirmCommand: (confirmed) => ipcRenderer.invoke("confirm-command", confirmed),
+
+  // Take a screenshot and stream the result
+  takeScreenshot: (onAgentEvent) => {
+    if (onAgentEvent) {
+      // Listen for agent events (including the image)
+      const handleAgentEvent = (_e, eventData) => onAgentEvent(eventData)
+      ipcRenderer.on("response-event", handleAgentEvent)
+
+      // Send the screenshot request
+      return ipcRenderer.invoke("take-screenshot").then((result) => {
+        // Clean up listener when done
+        ipcRenderer.removeListener("response-event", handleAgentEvent)
+        return result
+      })
+    } else {
+      // Fallback for non-streaming usage
+      return ipcRenderer.invoke("take-screenshot")
+    }
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import dotenv from "dotenv"
 import Terminal from "./terminal.js"
+import IOClient from "./io.js"
 dotenv.config()
 
 const baseSystem = `You are an AI assistant that helps users accomplish tasks on their computer using command-line tools.
@@ -151,10 +152,8 @@ const tools = [
 ]
 
 export default class Agent {
-  constructor(osClient, hideWindow, showWindow) {
-    this.osClient = osClient
-    this.hideWindow = hideWindow
-    this.showWindow = showWindow
+  constructor() {
+    this.ioClient = new IOClient()
 
     this.anthropicClient = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
@@ -230,6 +229,156 @@ export default class Agent {
     }
   }
 
+  async takeScreenshot(pushEvent) {
+    try {
+      const screenshot = await this.ioClient.takeScreenshot()
+      if (screenshot.success) {
+        pushEvent({
+          type: "image",
+          content: `data:image/jpeg;base64,${screenshot.base64}`
+        })
+        return { success: true }
+      } else {
+        pushEvent({
+          type: "text",
+          content: `Screenshot failed: ${screenshot.error}`
+        })
+        return { success: false, error: screenshot.error }
+      }
+    } catch (error) {
+      pushEvent({
+        type: "text",
+        content: `Screenshot error: ${error.message}`
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
+  async query(query, pushEvent, hardcode = false) {
+    // Check if API key exists
+    if (!hardcode && !process.env.ANTHROPIC_API_KEY) {
+      pushEvent({
+        type: "text",
+        content:
+          "Error: Anthropic API key not found. Please add it in settings."
+      })
+      return { success: false, error: "Missing API key" }
+    }
+
+    // Hardcoded response for testing
+    if (hardcode) {
+      try {
+        // 3. Terminal command message
+        pushEvent({
+          type: "text",
+          content: "3. Terminal command message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        pushEvent({
+          type: "bash",
+          content:
+            "ls -la /home/user && cd desktop/workfile && ls -la && npm install && npm run dev"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+
+        // 4. Error message
+        pushEvent({
+          type: "text",
+          content: "4. Error message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        pushEvent({
+          type: "error",
+          content: "This is an example error message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // 5. Image message
+        pushEvent({
+          type: "text",
+          content: "5. Image message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        pushEvent({
+          type: "image",
+          content:
+            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzQ0NzBmZiIgcng9IjEwIi8+CiAgPHRleHQgeD0iMTAwIiB5PSI1NSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TYW1wbGUgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=="
+        })
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // 6. Confirmation message
+        pushEvent({
+          type: "confirmation",
+          content: "Do you want to continue with the demo?"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // 7. Final text message
+        pushEvent({
+          type: "text",
+          content: "7. Final text message"
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        pushEvent({
+          type: "text",
+          content:
+            "That's all the different message types! Pretty cool, right? 🎉"
+        })
+
+        return { success: true }
+      } catch (error) {
+        pushEvent({
+          type: "text",
+          content: `Hardcoded streaming error: ${error.message}`
+        })
+        return { success: false, error: error.message }
+      }
+    }
+
+    try {
+      // Stream response from Anthropic API
+      const stream = this.anthropicClient.messages.stream({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2048,
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: query
+          }
+        ]
+      })
+
+      stream.on("text", (text) => {
+        pushEvent({
+          type: "text",
+          content: text
+        })
+      })
+
+      stream.on("error", (error) => {
+        pushEvent({
+          type: "text",
+          content: `Stream error: ${error.message}`
+        })
+      })
+
+      // Wait for the stream to complete
+      await stream.done()
+      return { success: true }
+    } catch (error) {
+      pushEvent({
+        type: "text",
+        content: `Error: ${error.message}`
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
   async run(query, initialScreenshot, pushEvent) {
     this.messages.push({
       role: "user",
@@ -248,13 +397,6 @@ export default class Agent {
 
     let running = true
     while (running) {
-      // console.log(
-      //   `------------- ${JSON.stringify(
-      //     this.truncateBase64(this.messages),
-      //     null,
-      //     2
-      //   )} -------------`
-      // )
       const response = await this.anthropicClient.beta.messages.create({
         model: "claude-sonnet-4-20250514",
         tools: tools,
@@ -301,7 +443,6 @@ export default class Agent {
             }
 
             // User confirmed - hide window and execute
-            this.hideWindow()
             pushEvent({
               type: "text",
               content: `Executing: ${content.input.command}`
@@ -324,7 +465,7 @@ export default class Agent {
             await new Promise((resolve) => setTimeout(resolve, 800))
 
             // Take screenshot after command execution
-            const screenshot = await this.osClient.takeScreenshot()
+            const screenshot = await this.ioClient.takeScreenshot()
             if (screenshot && screenshot.image) {
               this.messages.push({
                 role: "user",
@@ -340,24 +481,22 @@ export default class Agent {
                 ]
               })
             }
-
-            this.showWindow()
           } else {
-            // Execute custom GUI tools via osClient
+            // Execute custom GUI tools via ioClient
             const exec = {
-              left_click: ({ x, y }) => this.osClient.leftClick(x, y),
-              right_click: ({ x, y }) => this.osClient.rightClick(x, y),
-              double_click: ({ x, y }) => this.osClient.doubleClick(x, y),
+              left_click: ({ x, y }) => this.ioClient.leftClick(x, y),
+              right_click: ({ x, y }) => this.ioClient.rightClick(x, y),
+              double_click: ({ x, y }) => this.ioClient.doubleClick(x, y),
               drag: ({ x1, y1, x2, y2 }) =>
-                this.osClient.leftClickDrag(x1, y1, x2, y2),
-              type: ({ text }) => this.osClient.typeText(text)
+                this.ioClient.leftClickDrag(x1, y1, x2, y2),
+              type: ({ text }) => this.ioClient.typeText(text)
             }[content.name]
 
             if (exec) {
-                            // Show annotated screenshot for click/drag actions
+              // Show annotated screenshot for click/drag actions
               const { x, y, x1, y1 } = content.input
               if (x !== undefined && y !== undefined) {
-                const annotated = await this.osClient.annotateScreenshot(x, y)
+                const annotated = await this.ioClient.annotateScreenshot(x, y)
                 if (annotated && annotated.image) {
                   pushEvent({
                     type: "image",
@@ -365,10 +504,10 @@ export default class Agent {
                   })
                 }
               } else if (x1 !== undefined && y1 !== undefined) {
-                const annotated = await this.osClient.annotateScreenshot(x1, y1)
+                const annotated = await this.ioClient.annotateScreenshot(x1, y1)
                 if (annotated && annotated.image) {
                   pushEvent({
-                    type: "image", 
+                    type: "image",
                     content: `data:image/jpeg;base64,${annotated.image}`
                   })
                 }
@@ -377,7 +516,7 @@ export default class Agent {
               // Ask for confirmation with action description
               const actionDesc = {
                 left_click: `Left click at (${content.input.x}, ${content.input.y})`,
-                right_click: `Right click at (${content.input.x}, ${content.input.y})`, 
+                right_click: `Right click at (${content.input.x}, ${content.input.y})`,
                 double_click: `Double click at (${content.input.x}, ${content.input.y})`,
                 drag: `Drag from (${content.input.x1}, ${content.input.y1}) to (${content.input.x2}, ${content.input.y2})`,
                 type: `Type: "${content.input.text}"`
@@ -398,7 +537,6 @@ export default class Agent {
                 running = false
                 break
               }
-              this.hideWindow()
               await exec(content.input)
               // Record tool result (empty success message)
               this.messages.push({
@@ -414,7 +552,7 @@ export default class Agent {
 
               await new Promise((resolve) => setTimeout(resolve, 800))
 
-              const screenshot = await this.osClient.takeScreenshot()
+              const screenshot = await this.ioClient.takeScreenshot()
               if (screenshot && screenshot.image) {
                 this.messages.push({
                   role: "user",
@@ -430,8 +568,6 @@ export default class Agent {
                   ]
                 })
               }
-
-              this.showWindow()
             }
           }
         }

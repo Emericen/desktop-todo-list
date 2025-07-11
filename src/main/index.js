@@ -5,14 +5,10 @@ import dotenv from "dotenv"
 import {
   createChatWindow,
   showChatWindow,
-  toggleChatWindow,
-  hideChatWindow,
-  getCurrentScreenshot,
-  cleanup
+  toggleChatWindow
 } from "./windows/chat.js"
 import { createSettingsWindow } from "./windows/settings.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
-import OSClient from "./clients/os.js"
 import AnthropicClient from "./clients/anthropic.js"
 import OpenAIClient from "./clients/openai.js"
 import { registerShortcuts, unregisterAllShortcuts } from "./shortcuts.js"
@@ -35,23 +31,19 @@ app.whenReady().then(() => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-      createChatWindow(osClient)
+      createChatWindow()
     }
   })
 
   // Register global shortcuts (can later be loaded from settings)
   registerShortcuts({ "Alt+P": toggleChatWindow })
 
-  // Create and start OS client (shared by Agent and chat window)
-  const osClient = new OSClient()
-  osClient.start()
-
   // Initialize clients
   const anthropicClient = new AnthropicClient()
   const openaiClient = new OpenAIClient()
 
-  // Initialize Agent with OSClient
-  const agent = new Agent(osClient, hideChatWindow, showChatWindow)
+  // Initialize Agent (creates its own IOClient internally)
+  const agent = new Agent()
 
   // Default open or close DevTools by F12 in development
   app.on("browser-window-created", (_, window) => {
@@ -78,9 +70,12 @@ app.whenReady().then(() => {
       event.sender.send("response-event", eventData)
     }
 
-    const screenshot = getCurrentScreenshot()
-    console.log("SIMPLIFIED PAYLOAD:", JSON.stringify(payload, null, 2))
-    return await agent.run(payload.query, screenshot, pushEvent)
+    // Simple screenshot command
+    if (payload.query.toLowerCase().trim() === "screenshot") {
+      return await agent.takeScreenshot(pushEvent)
+    }
+
+    return await agent.query(payload.query, pushEvent)
   })
 
   ipcMain.handle("transcribe", async (_event, payload) => {
@@ -93,18 +88,21 @@ app.whenReady().then(() => {
     return { success: true }
   })
 
-  // ========= WINDOWS AND TRAY =========
-  createChatWindow(osClient)
-  createSystemTray({
-    onShowChat: () => showChatWindow(true),
-    onOpenSettings: () => createSettingsWindow(),
-    onQuit: () => app.quit()
+  ipcMain.handle("take-screenshot", async (event) => {
+    const pushEvent = (eventData) => {
+      event.sender.send("response-event", eventData)
+    }
+
+    return await agent.takeScreenshot(pushEvent)
   })
 
-  // ========= APP CLEANUP =========
-  app.on("before-quit", () => {
-    osClient.stop()
-    cleanup()
+  // ========= WINDOWS AND TRAY =========
+  createChatWindow() // Create window at startup
+
+  createSystemTray({
+    onShowChat: () => showChatWindow(),
+    onOpenSettings: () => createSettingsWindow(),
+    onQuit: () => app.quit()
   })
 
   app.on("will-quit", () => {
