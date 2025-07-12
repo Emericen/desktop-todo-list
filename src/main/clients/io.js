@@ -13,12 +13,34 @@ import {
 } from "../windows/chat.js"
 
 const execFileAsync = promisify(execFile)
-let lastScreenshot = null
 
 export default class IOClient {
   constructor() {
-    mouse.config.autoDelayMs = 3
+    // mouse.config.autoDelayMs = 200
+    this.mouseDelay = 200
     keyboard.config.autoDelayMs = 3
+    this.scaleX = 1
+    this.scaleY = 1
+  }
+
+  // Utility to scale coordinates from resized screenshot space to real screen space
+  _scale(x, y) {
+    let scaleX = this.scaleX
+    let scaleY = this.scaleY
+
+    // On macOS Retina displays, mouse coordinates operate in logical pixels
+    // which are typically half the actual pixel resolution
+    if (process.platform === "darwin") {
+      // Detect Retina display by checking if scale factor suggests 2x density
+      const isRetina = this.scaleX > 2.5 || this.scaleY > 2.5
+      if (isRetina) {
+        scaleX = this.scaleX / 2
+        scaleY = this.scaleY / 2
+      }
+    }
+
+    const scaled = { x: Math.round(x * scaleX), y: Math.round(y * scaleY) }
+    return scaled
   }
 
   async takeScreenshot() {
@@ -38,26 +60,26 @@ export default class IOClient {
           const imageBuffer = await fs.promises.readFile(tempPath)
           await fs.promises.unlink(tempPath)
 
+          // Get original dimensions
+          const originalMeta = await sharp(imageBuffer).metadata()
+
           const resizedBuffer = await sharp(imageBuffer)
             .resize({ height: 720 })
             .jpeg({ quality: 80 })
             .toBuffer()
 
           const base64 = resizedBuffer.toString("base64")
-          const metadata = await sharp(resizedBuffer).metadata()
+          const resizedMeta = await sharp(resizedBuffer).metadata()
 
-          lastScreenshot = {
-            base64,
-            width: metadata.width,
-            height: metadata.height,
-            timestamp: Date.now()
-          }
+          // Update scaling factors
+          this.scaleX = originalMeta.width / resizedMeta.width
+          this.scaleY = originalMeta.height / resizedMeta.height
 
           return {
             success: true,
             base64,
-            width: metadata.width,
-            height: metadata.height
+            width: resizedMeta.width,
+            height: resizedMeta.height
           }
         } catch (error) {
           console.error("Failed to capture and resize screenshot:", error)
@@ -78,15 +100,26 @@ export default class IOClient {
           throw new Error("No screen sources available")
         }
         const source = sources[0]
-        const buffer = source.thumbnail.toJPEG(70)
-        const base64 = buffer.toString("base64")
-        const size = source.thumbnail.getSize()
+        const originalSize = source.thumbnail.getSize()
+
+        // Resize to height 720 for consistency
+        const resizedBuffer = await sharp(source.thumbnail.toPNG())
+          .resize({ height: 720 })
+          .jpeg({ quality: 80 })
+          .toBuffer()
+
+        const resizedMeta = await sharp(resizedBuffer).metadata()
+        const base64 = resizedBuffer.toString("base64")
+
+        // Update scaling factors
+        this.scaleX = originalSize.width / resizedMeta.width
+        this.scaleY = originalSize.height / resizedMeta.height
 
         return {
           success: true,
           base64,
-          width: size.width,
-          height: size.height
+          width: resizedMeta.width,
+          height: resizedMeta.height
         }
       } catch (error) {
         console.error(
@@ -145,73 +178,61 @@ export default class IOClient {
 
   async rightClick(x, y) {
     hideChatWindow()
-    await mouse.move({ x: x, y: y })
+    const { x: sx, y: sy } = this._scale(x, y)
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
+    await mouse.move({ x: sx, y: sy })
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     await mouse.rightClick()
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     showChatWindow()
   }
 
   async leftClick(x, y) {
     hideChatWindow()
-    await mouse.move({ x: x, y: y })
+    const { x: sx, y: sy } = this._scale(x, y)
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
+    await mouse.move({ x: sx, y: sy })
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     await mouse.leftClick()
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     showChatWindow()
   }
 
   async doubleClick(x, y) {
     hideChatWindow()
-    await mouse.move({ x: x, y: y })
+    const { x: sx, y: sy } = this._scale(x, y)
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
+    await mouse.move({ x: sx, y: sy })
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     await mouse.doubleClick()
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     showChatWindow()
   }
 
   async leftClickDrag(x1, y1, x2, y2) {
     hideChatWindow()
-    await mouse.move({ x: x1, y: y1 })
+    const start = this._scale(x1, y1)
+    const end = this._scale(x2, y2)
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
+    await mouse.move({ x: start.x, y: start.y })
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     await mouse.pressButton(0) // Left button down
-    await mouse.move({ x: x2, y: y2 })
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
+    await mouse.move({ x: end.x, y: end.y })
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     await mouse.releaseButton(0) // Left button up
     showChatWindow()
   }
 
   async typeText(x, y, text) {
     hideChatWindow()
-    await mouse.move({ x: x, y: y })
+    const { x: sx, y: sy } = this._scale(x, y)
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
+    await mouse.move({ x: sx, y: sy })
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     await mouse.leftClick()
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     await keyboard.type(text)
     showChatWindow()
-  }
-
-  async annotateScreenshot(x, y) {
-    // Take a screenshot and add a red dot at the specified coordinates
-    const screenshot = await this.takeScreenshot()
-    if (!screenshot.success) {
-      return screenshot
-    }
-
-    try {
-      // Create a simple annotation (red circle) at the coordinates
-      const annotated = await sharp(Buffer.from(screenshot.base64, "base64"))
-        .composite([
-          {
-            input: Buffer.from(
-              `<svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="red" opacity="0.7"/></svg>`
-            ),
-            top: Math.max(0, y - 10),
-            left: Math.max(0, x - 10)
-          }
-        ])
-        .jpeg({ quality: 80 })
-        .toBuffer()
-
-      return {
-        success: true,
-        image: annotated.toString("base64"),
-        width: screenshot.width,
-        height: screenshot.height
-      }
-    } catch (error) {
-      console.error("Failed to annotate screenshot:", error)
-      return { success: false, error: error.message }
-    }
   }
 }

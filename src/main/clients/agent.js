@@ -21,6 +21,7 @@ Choose the appropriate tool based on the context and nature of the user's reques
 - Development tasks (running code, installing packages, git operations)
 - System operations and command-line tasks
 - When you need to launch something new
+- **URL NAVIGATION: Always use bash 'open' command to navigate to URLs (e.g., 'open https://youtube.com') instead of trying to click and type in address bars**
 
 **USE GUI TOOLS (click/drag/type) FOR:**
 - Navigating within applications that are already open
@@ -41,6 +42,10 @@ User: "Organize the files on my desktop"
 Example 3 - Development task:
 User: "Debug this React app"
 → Use bash to run commands, screenshot to see browser, GUI if needed for browser interaction
+
+Example 4 - URL navigation:
+User: "Go to YouTube and find the latest All-In podcast"
+→ Use bash 'open https://youtube.com' to navigate, then screenshot to see the page, then GUI to search and interact
 
 Be context-aware and choose the most logical starting point based on what the user is asking for.`
 
@@ -205,11 +210,11 @@ export default class Agent {
     if (isTestQuery) {
       return { success: true }
     }
+    this.messages = [{ role: "user", content: query }]
 
-    this.messages.push({ role: "user", content: query })
     let hasNextTurn = true // Start with true to enter the loop
     while (hasNextTurn) {
-      hasNextTurn = false // Reset to false at start of each iteration
+      hasNextTurn = false
 
       const response = await this.anthropicClient.beta.messages.create({
         model: "claude-sonnet-4-20250514",
@@ -229,7 +234,7 @@ export default class Agent {
         } else if (content.type === "tool_use") {
           hasNextTurn = true // Continue to next turn after tool use
           switch (content.name) {
-            case "bash":
+            case "bash": {
               pushEvent({ type: "bash", content: content.input.command })
 
               // Wait for user confirmation via frontend
@@ -253,19 +258,25 @@ export default class Agent {
                     {
                       type: "tool_result",
                       tool_use_id: content.id,
-                      content: execResult
+                      content: JSON.stringify(execResult, null, 2)
                     }
                   ]
                 })
+              } else {
+                // User cancelled - just break out of query
+                pushEvent({ type: "text", content: "Command cancelled." })
+                return { success: true }
               }
               break
-            case "screenshot":
+            }
+            case "screenshot": {
               pushEvent({
                 type: "text",
-                content: "\n\n*📸 Taking a look at the screen...*\n\n"
+                content: "\n\n*👀 Taking a look...*\n\n"
               })
               const screenshot = await this.ioClient.takeScreenshot()
 
+              // Send tool_result for Anthropic
               this.messages.push({
                 role: "user",
                 content: [
@@ -286,74 +297,210 @@ export default class Agent {
                 ]
               })
               break
-            default:
+            }
+            case "left_click": {
+              const x = content.input.x
+              const y = content.input.y
+              const leftClickAnnotation =
+                await this.ioClient.takeScreenshotWithAnnotation([
+                  { label: "Left Click", x: x, y: y }
+                ])
               pushEvent({
-                type: "error",
-                content: `Unknown tool use: ${content.name}`
+                type: "image",
+                content: `data:image/jpeg;base64,${leftClickAnnotation.base64}`
               })
-              this.messages.push({
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result",
-                    tool_use_id: content.id,
-                    content: "Unknown tool use. Please use tools listed!"
-                  }
-                ]
+              pushEvent({ type: "confirmation", content: "Left click here?" })
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
               })
+              if (confirmed) {
+                await this.ioClient.leftClick(x, y)
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "OK"
+                    }
+                  ]
+                })
+              } else {
+                // User cancelled - just break out of query
+                pushEvent({ type: "text", content: "Action cancelled." })
+                return { success: true }
+              }
               break
+            }
+            case "right_click": {
+              const x = content.input.x
+              const y = content.input.y
+              const rightClickAnnotation =
+                await this.ioClient.takeScreenshotWithAnnotation([
+                  { label: "Right Click", x: x, y: y }
+                ])
+              pushEvent({
+                type: "image",
+                content: `data:image/jpeg;base64,${rightClickAnnotation.base64}`
+              })
+              pushEvent({ type: "confirmation", content: "Right click here?" })
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+              if (confirmed) {
+                await this.ioClient.rightClick(x, y)
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "OK"
+                    }
+                  ]
+                })
+              } else {
+                // User cancelled - just break out of query
+                pushEvent({ type: "text", content: "Action cancelled." })
+                return { success: true }
+              }
+              break
+            }
+            case "double_click": {
+              const x = content.input.x
+              const y = content.input.y
+              const doubleClickAnnotation =
+                await this.ioClient.takeScreenshotWithAnnotation([
+                  { label: "Double Click", x: x, y: y }
+                ])
+              pushEvent({
+                type: "image",
+                content: `data:image/jpeg;base64,${doubleClickAnnotation.base64}`
+              })
+              pushEvent({ type: "confirmation", content: "Double click here?" })
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+              if (confirmed) {
+                await this.ioClient.doubleClick(x, y)
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "OK"
+                    }
+                  ]
+                })
+              } else {
+                // User cancelled - just break out of query
+                pushEvent({ type: "text", content: "Action cancelled." })
+                return { success: true }
+              }
+              break
+            }
+            case "drag": {
+              const x1 = content.input.x1
+              const y1 = content.input.y1
+              const x2 = content.input.x2
+              const y2 = content.input.y2
+              const dragAnnotation =
+                await this.ioClient.takeScreenshotWithAnnotation([
+                  { label: "Drag", x: x1, y: y1 },
+                  { label: "Drop", x: x2, y: y2 }
+                ])
+              pushEvent({
+                type: "image",
+                content: `data:image/jpeg;base64,${dragAnnotation.base64}`
+              })
+              pushEvent({
+                type: "confirmation",
+                content: "Drag and drop in above?"
+              })
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+              if (confirmed) {
+                await this.ioClient.leftClickDrag(x1, y1, x2, y2)
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "OK"
+                    }
+                  ]
+                })
+              } else {
+                // User cancelled - just break out of query
+                pushEvent({ type: "text", content: "Action cancelled." })
+                return { success: true }
+              }
+              break
+            }
+            case "type": {
+              const x = content.input.x
+              const y = content.input.y
+              const text = content.input.text
+              const typeAnnotation =
+                await this.ioClient.takeScreenshotWithAnnotation([
+                  { label: "Type", x: x, y: y }
+                ])
+              pushEvent({
+                type: "image",
+                content: `data:image/jpeg;base64,${typeAnnotation.base64}`
+              })
+              pushEvent({ type: "text", content: `> *"${text}"*` })
+              pushEvent({ type: "confirmation", content: `Type this here?` })
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+              if (confirmed) {
+                await this.ioClient.typeText(x, y, text)
+                const screenshot = await this.ioClient.takeScreenshot()
+                pushEvent({
+                  type: "image",
+                  content: `data:image/jpeg;base64,${screenshot.base64}`
+                })
+
+                // Record success with screenshot
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "OK"
+                    }
+                  ]
+                })
+                
+                // Add screenshot as separate message for context
+                this.messages.push({
+                  role: "user", 
+                  content: [
+                    {
+                      type: "image",
+                      source: {
+                        type: "base64",
+                        media_type: "image/jpeg",
+                        data: screenshot.base64
+                      }
+                    }
+                  ]
+                })
+              } else {
+                // User cancelled - just break out of query
+                pushEvent({ type: "text", content: "Action cancelled." })
+                return { success: true }
+              }
+              break
+            }
           }
         }
       }
-    }
-
-    // Check if API key exists
-    if (!process.env.ANTHROPIC_API_KEY) {
-      pushEvent({
-        type: "text",
-        content:
-          "Error: Anthropic API key not found. Please add it in settings."
-      })
-      return { success: false, error: "Missing API key" }
-    }
-
-    try {
-      // Stream response from Anthropic API
-      const stream = this.anthropicClient.messages.stream({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2048,
-        temperature: 0,
-        messages: [
-          {
-            role: "user",
-            content: query
-          }
-        ]
-      })
-
-      stream.on("text", (text) => {
-        pushEvent({
-          type: "text",
-          content: text
-        })
-      })
-
-      stream.on("error", (error) => {
-        pushEvent({
-          type: "text",
-          content: `Stream error: ${error.message}`
-        })
-      })
-
-      // Wait for the stream to complete
-      await stream.done()
-      return { success: true }
-    } catch (error) {
-      pushEvent({
-        type: "text",
-        content: `Error: ${error.message}`
-      })
-      return { success: false, error: error.message }
     }
   }
 
@@ -416,6 +563,96 @@ export default class Agent {
         }
         return true
 
+      case "/click":
+        try {
+          const x = 203
+          const y = 687
+          const leftClickAnnotation =
+            await this.ioClient.takeScreenshotWithAnnotation([
+              { label: "Left Click", x: x, y: y }
+            ])
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${leftClickAnnotation.base64}`
+          })
+          pushEvent({ type: "confirmation", content: "Left click here?" })
+          const confirmed = await new Promise((resolve) => {
+            this.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.ioClient.leftClick(x, y)
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Hardcoded streaming error: ${error.message}`
+          })
+        }
+        return true
+
+      case "/type":
+        try {
+          const x = 100
+          const y = 100
+          const text =
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+          const typeAnnotation =
+            await this.ioClient.takeScreenshotWithAnnotation([
+              { label: "Type", x: x, y: y }
+            ])
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${typeAnnotation.base64}`
+          })
+          pushEvent({ type: "text", content: `> *"${text}"*` })
+          pushEvent({ type: "confirmation", content: `Type this here?` })
+          const confirmed = await new Promise((resolve) => {
+            this.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.ioClient.typeText(x, y, text)
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Hardcoded streaming error: ${error.message}`
+          })
+        }
+        return true
+
+      case "/drag":
+        try {
+          const x1 = 100
+          const y1 = 100
+          const x2 = 120
+          const y2 = 120
+          const dragAnnotation =
+            await this.ioClient.takeScreenshotWithAnnotation([
+              { label: "Drag", x: x1, y: y1 },
+              { label: "Drop", x: x2, y: y2 }
+            ])
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${dragAnnotation.base64}`
+          })
+          pushEvent({
+            type: "confirmation",
+            content: "Drag and drop in above?"
+          })
+          const confirmed = await new Promise((resolve) => {
+            this.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.ioClient.leftClickDrag(x1, y1, x2, y2)
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Hardcoded streaming error: ${error.message}`
+          })
+        }
+        return true
+
       default:
         return false
     }
@@ -472,202 +709,6 @@ export default class Agent {
     if (this.pendingConfirmation) {
       this.pendingConfirmation(confirmed)
       this.pendingConfirmation = null
-    }
-  }
-
-  async run(query, initialScreenshot, pushEvent) {
-    this.messages.push({
-      role: "user",
-      content: [
-        {
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: "image/jpeg",
-            data: initialScreenshot
-          }
-        },
-        { type: "text", text: query }
-      ]
-    })
-
-    let running = true
-    while (running) {
-      const response = await this.anthropicClient.beta.messages.create({
-        model: "claude-sonnet-4-20250514",
-        tools: tools,
-        system: this.system,
-        messages: this.messages,
-        max_tokens: 2048,
-        temperature: 0,
-        stream: false
-      })
-
-      // Add assistant response to conversation
-      this.messages.push({
-        role: "assistant",
-        content: response.content
-      })
-
-      for (const content of response.content) {
-        if (content.type === "text") {
-          pushEvent({ type: "text", content: content.text })
-        }
-
-        if (content.type === "tool_use") {
-          if (content.name === "bash") {
-            // Show the command and ask for confirmation
-            pushEvent({
-              type: "bash",
-              content: content.input.command,
-              toolUseId: content.id
-            })
-
-            // Wait for user confirmation
-            const confirmation = await new Promise((resolve) => {
-              this.pendingConfirmation = resolve
-            })
-
-            if (!confirmation) {
-              // User canceled - exit the agent loop
-              pushEvent({
-                type: "text",
-                content: "Command execution canceled."
-              })
-              running = false
-              break
-            }
-
-            // User confirmed - hide window and execute
-            pushEvent({
-              type: "text",
-              content: `Executing: ${content.input.command}`
-            })
-
-            const result = await this.terminal.execute(content.input.command)
-
-            // Add tool result to conversation
-            this.messages.push({
-              role: "user",
-              content: [
-                {
-                  type: "tool_result",
-                  tool_use_id: content.id,
-                  content: JSON.stringify(result, null, 2)
-                }
-              ]
-            })
-
-            await new Promise((resolve) => setTimeout(resolve, 800))
-
-            // Take screenshot after command execution
-            const screenshot = await this.ioClient.takeScreenshot()
-            if (screenshot && screenshot.image) {
-              this.messages.push({
-                role: "user",
-                content: [
-                  {
-                    type: "image",
-                    source: {
-                      type: "base64",
-                      media_type: "image/jpeg",
-                      data: screenshot.image
-                    }
-                  }
-                ]
-              })
-            }
-          } else {
-            // Execute custom GUI tools via ioClient
-            const exec = {
-              left_click: ({ x, y }) => this.ioClient.leftClick(x, y),
-              right_click: ({ x, y }) => this.ioClient.rightClick(x, y),
-              double_click: ({ x, y }) => this.ioClient.doubleClick(x, y),
-              drag: ({ x1, y1, x2, y2 }) =>
-                this.ioClient.leftClickDrag(x1, y1, x2, y2),
-              type: ({ text }) => this.ioClient.typeText(text)
-            }[content.name]
-
-            if (exec) {
-              // Show annotated screenshot for click/drag actions
-              const { x, y, x1, y1 } = content.input
-              if (x !== undefined && y !== undefined) {
-                const annotated = await this.ioClient.annotateScreenshot(x, y)
-                if (annotated && annotated.image) {
-                  pushEvent({
-                    type: "image",
-                    content: `data:image/jpeg;base64,${annotated.image}`
-                  })
-                }
-              } else if (x1 !== undefined && y1 !== undefined) {
-                const annotated = await this.ioClient.annotateScreenshot(x1, y1)
-                if (annotated && annotated.image) {
-                  pushEvent({
-                    type: "image",
-                    content: `data:image/jpeg;base64,${annotated.image}`
-                  })
-                }
-              }
-
-              // Ask for confirmation with action description
-              const actionDesc = {
-                left_click: `Left click at (${content.input.x}, ${content.input.y})`,
-                right_click: `Right click at (${content.input.x}, ${content.input.y})`,
-                double_click: `Double click at (${content.input.x}, ${content.input.y})`,
-                drag: `Drag from (${content.input.x1}, ${content.input.y1}) to (${content.input.x2}, ${content.input.y2})`,
-                type: `Type: "${content.input.text}"`
-              }[content.name]
-
-              pushEvent({
-                type: "bash", // Reuse bash confirmation UI
-                content: actionDesc,
-                toolUseId: content.id
-              })
-
-              const confirmation = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-
-              if (!confirmation) {
-                pushEvent({ type: "text", content: "Action canceled." })
-                running = false
-                break
-              }
-              await exec(content.input)
-              // Record tool result (empty success message)
-              this.messages.push({
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result",
-                    tool_use_id: content.id,
-                    content: "ok"
-                  }
-                ]
-              })
-
-              await new Promise((resolve) => setTimeout(resolve, 800))
-
-              const screenshot = await this.ioClient.takeScreenshot()
-              if (screenshot && screenshot.image) {
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "image",
-                      source: {
-                        type: "base64",
-                        media_type: "image/jpeg",
-                        data: screenshot.image
-                      }
-                    }
-                  ]
-                })
-              }
-            }
-          }
-        }
-      }
     }
   }
 }

@@ -251,14 +251,18 @@ export function ImageMessage({ message }) {
 export function ConfirmationMessage({ message, index }) {
   const { selectChoice, setAwaitingUserResponse } = useStore()
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     selectChoice(index, "approved")
     setAwaitingUserResponse(false)
+    // Send confirmation to backend
+    await window.api.confirmCommand(true)
   }
 
-  const handleReject = () => {
+  const handleReject = async () => {
     selectChoice(index, "rejected")
     setAwaitingUserResponse(false)
+    // Send confirmation to backend
+    await window.api.confirmCommand(false)
   }
 
   // Set awaiting response when component mounts and not answered
