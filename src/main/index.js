@@ -70,12 +70,16 @@ app.whenReady().then(() => {
       event.sender.send("response-event", eventData)
     }
 
-    // Simple screenshot command
-    if (payload.query.toLowerCase().trim() === "screenshot") {
-      return await agent.takeScreenshot(pushEvent)
-    }
+    // // Simple screenshot command
+    // if (payload.query.toLowerCase().trim() === "screenshot") {
+    //   const res = await agent.takeScreenshot(pushEvent)
+    //   event.sender.send("focus-query-input")
+    //   return res
+    // }
 
-    return await agent.query(payload.query, pushEvent)
+    const res = await agent.query(payload.query, pushEvent)
+    event.sender.send("focus-query-input")
+    return res
   })
 
   ipcMain.handle("transcribe", async (_event, payload) => {

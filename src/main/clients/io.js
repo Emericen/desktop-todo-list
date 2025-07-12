@@ -39,8 +39,7 @@ export default class IOClient {
           await fs.promises.unlink(tempPath)
 
           const resizedBuffer = await sharp(imageBuffer)
-            // .resize({ height: 1080 })
-            .resize({ height: 384 })
+            .resize({ height: 720 })
             .jpeg({ quality: 80 })
             .toBuffer()
 
@@ -105,6 +104,45 @@ export default class IOClient {
     }
   }
 
+  async takeScreenshotWithAnnotation(dots) {
+    const screenshot = await this.takeScreenshot()
+    if (!screenshot.success) {
+      return screenshot
+    }
+
+    try {
+      // Create transparent yellow circles for each dot - sized for 720px resolution
+      const overlays = dots.map((dot, index) => ({
+        input: Buffer.from(`
+          <svg width="140" height="140">
+            <circle cx="70" cy="70" r="60" fill="yellow" opacity="0.3" stroke="yellow" stroke-width="3" stroke-opacity="0.6"/>
+            <circle cx="70" cy="70" r="5" fill="red" opacity="0.9"/>
+            <text x="88" y="78" text-anchor="start" fill="red" font-size="30">${
+              dot.label || ""
+            }</text>
+          </svg>
+        `),
+        top: Math.max(0, dot.y - 70),
+        left: Math.max(0, dot.x - 70)
+      }))
+
+      const annotated = await sharp(Buffer.from(screenshot.base64, "base64"))
+        .composite(overlays)
+        .jpeg({ quality: 80 })
+        .toBuffer()
+
+      return {
+        success: true,
+        base64: annotated.toString("base64"),
+        width: screenshot.width,
+        height: screenshot.height
+      }
+    } catch (error) {
+      console.error("Failed to annotate screenshot:", error)
+      return { success: false, error: error.message }
+    }
+  }
+
   async rightClick(x, y) {
     hideChatWindow()
     await mouse.move({ x: x, y: y })
@@ -152,18 +190,22 @@ export default class IOClient {
 
     try {
       // Create a simple annotation (red circle) at the coordinates
-      const annotated = await sharp(Buffer.from(screenshot.base64, 'base64'))
-        .composite([{
-          input: Buffer.from(`<svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="red" opacity="0.7"/></svg>`),
-          top: Math.max(0, y - 10),
-          left: Math.max(0, x - 10)
-        }])
+      const annotated = await sharp(Buffer.from(screenshot.base64, "base64"))
+        .composite([
+          {
+            input: Buffer.from(
+              `<svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="red" opacity="0.7"/></svg>`
+            ),
+            top: Math.max(0, y - 10),
+            left: Math.max(0, x - 10)
+          }
+        ])
         .jpeg({ quality: 80 })
         .toBuffer()
 
       return {
         success: true,
-        image: annotated.toString('base64'),
+        image: annotated.toString("base64"),
         width: screenshot.width,
         height: screenshot.height
       }

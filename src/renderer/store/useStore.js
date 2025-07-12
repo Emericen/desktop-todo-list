@@ -31,7 +31,14 @@ const useStore = create((set, get) => ({
   },
 
   addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
+    set((state) => ({
+      messages: [
+        ...state.messages,
+        message.type === "confirmation"
+          ? { ...message, answered: null }
+          : message
+      ]
+    })),
 
   // Replace the last image message with a new one, or add if no image exists
   replaceLastImageMessage: (message) =>
@@ -61,7 +68,10 @@ const useStore = create((set, get) => ({
   selectChoice: (index, choice) =>
     set((state) => {
       const updatedMessages = [...state.messages]
-      if (updatedMessages[index] && updatedMessages[index].type === "confirmation") {
+      if (
+        updatedMessages[index] &&
+        updatedMessages[index].type === "confirmation"
+      ) {
         updatedMessages[index] = {
           ...updatedMessages[index],
           answered: choice
@@ -116,13 +126,54 @@ const useStore = create((set, get) => ({
             isFirstEvent = false
           } else {
             // For subsequent responses, check if we should append to existing or create new
-            if (eventData.type === "text" && get().messages[messageIndex]?.type === "text") {
+            if (
+              eventData.type === "bash" &&
+              eventData.result &&
+              get().messages.some(
+                (m) =>
+                  m.type === "bash" &&
+                  m.content === eventData.content &&
+                  !m.result
+              )
+            ) {
+              set((state) => {
+                const updatedMessages = [...state.messages]
+                const targetIndex = [...updatedMessages]
+                  .reverse()
+                  .findIndex(
+                    (m) =>
+                      m.type === "bash" &&
+                      m.content === eventData.content &&
+                      !m.result
+                  )
+                if (targetIndex !== -1) {
+                  // reverse index offset
+                  const realIndex = updatedMessages.length - 1 - targetIndex
+                  updatedMessages[realIndex] = {
+                    ...updatedMessages[realIndex],
+                    result: eventData.result
+                  }
+                  return { messages: updatedMessages }
+                }
+                // Fallback push new message
+                return {
+                  messages: [
+                    ...updatedMessages,
+                    { ...eventData, timestamp: new Date() }
+                  ]
+                }
+              })
+            } else if (
+              eventData.type === "text" &&
+              get().messages[messageIndex]?.type === "text"
+            ) {
               // Append text to existing text message
               set((state) => {
                 const updatedMessages = [...state.messages]
                 updatedMessages[messageIndex] = {
                   ...updatedMessages[messageIndex],
-                  content: updatedMessages[messageIndex].content + eventData.content
+                  content:
+                    updatedMessages[messageIndex].content + eventData.content
                 }
                 return { messages: updatedMessages }
               })

@@ -4,57 +4,90 @@ import Terminal from "./terminal.js"
 import IOClient from "./io.js"
 dotenv.config()
 
-const baseSystem = `You are an AI assistant that helps users accomplish tasks on their computer using command-line tools.
+const system = `You are a desktop assistant created by Lychee to help users be more productive by operating their computer.
 
-HOW YOU OPERATE:
-You receive a user query along with a screenshot of their current desktop. You can:
-1. Respond with text to explain what you're doing
-2. Use the bash tool to execute commands (including GUI automation)
-3. After each bash command, you'll receive a new screenshot showing the updated state
-4. Continue this cycle until the task is complete
+TOOL SELECTION STRATEGY:
+Choose the appropriate tool based on the context and nature of the user's request:
 
-AVAILABLE AUTOMATION:
-You have access to GUI automation tools through bash commands:
-- Mouse clicks, typing, window management
-- File operations, directory navigation  
-- Application launching and control
-- System commands and utilities
+**START WITH SCREENSHOT when:**
+- You need to understand the current visual context before proceeding
+- User asks about something they might becurrently looking at ("how do I get to...", "where is...", "help me navigate...")
+- The query implies they're already in an application or website
+- User wants help with existing GUI interfaces
 
-EXECUTION APPROACH:
-- Execute one command at a time using the bash tool
-- Each command will be followed by a screenshot showing the result
-- Use the visual feedback to plan your next action
-- Be methodical and verify each step before proceeding
+**USE BASH FOR:**
+- File operations (creating, editing, moving, organizing files)
+- Opening applications or files from scratch
+- Development tasks (running code, installing packages, git operations)
+- System operations and command-line tasks
+- When you need to launch something new
 
-IMPORTANT:
-- Always execute commands one at a time
-- Use the screenshot feedback to guide your next action
-- If something doesn't work as expected, adjust your approach
-- After you click on certain UIs, you should wait for a moment before continuing. Use bash tool and sleep for certain amount of time.
-- Explain what you're doing so the user understands your process`
+**USE GUI TOOLS (click/drag/type) FOR:**
+- Navigating within applications that are already open
+- Interacting with web interfaces, forms, buttons
+- When bash cannot control the specific interface
+- Following up after seeing current state via screenshot
 
-const windowsPrompt = `Operating System: win32 (Windows) | Shell: PowerShell`
-const macosPrompt = `Operating System: darwin (macOS) | Shell: bash`
-const linuxPrompt = `Operating System: linux (Linux) | Shell: bash`
+**FLEXIBLE WORKFLOW EXAMPLES:**
+
+Example 1 - Navigation help:
+User: "How do I get to the subscription panel?"
+→ Take screenshot first to see what they're looking at, then guide with clicks
+
+Example 2 - File task:
+User: "Organize the files on my desktop"
+→ Use bash to list/move files, screenshot to verify, bash for organization
+
+Example 3 - Development task:
+User: "Debug this React app"
+→ Use bash to run commands, screenshot to see browser, GUI if needed for browser interaction
+
+Be context-aware and choose the most logical starting point based on what the user is asking for.`
 
 const tools = [
   {
     type: "custom",
+    name: "screenshot",
+    description:
+      "Take a screenshot of the current desktop. This is useful when you want to see the user's screen in tasks that require visual information or verification.",
+    input_schema: { type: "object", properties: {} }
+  },
+  {
+    type: "custom",
+    name: "bash",
+    description: `Execute a bash command. The following are some information about the operating system so that you can use the appropriate shell commands. ${
+      process.platform === "win32"
+        ? "Operating System: win32 (Windows) | Shell: PowerShell"
+        : process.platform === "linux"
+        ? "Operating System: linux (Linux) | Shell: bash"
+        : "Operating System: darwin (macOS) | Shell: bash"
+    }`,
+    input_schema: {
+      type: "object",
+      properties: {
+        command: {
+          type: "string",
+          description:
+            "The bash command to execute in a single line, without any comments or explanations."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
     name: "left_click",
     description:
-      "Click the left mouse button at designated location on the screen.",
+      "Perform a mouse cursor left click on the screen at the given pixel coordinates.",
     input_schema: {
       type: "object",
       properties: {
         x: {
           type: "number",
-          description:
-            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+          description: "The x / horizontal pixel coordinate of the click."
         },
         y: {
           type: "number",
-          description:
-            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+          description: "The y / vertical pixel coordinate of the click."
         }
       }
     }
@@ -63,19 +96,17 @@ const tools = [
     type: "custom",
     name: "right_click",
     description:
-      "Click the right mouse button at designated location on the screen.",
+      "Perform a mouse cursor right click on the screen at the given pixel coordinates.",
     input_schema: {
       type: "object",
       properties: {
         x: {
           type: "number",
-          description:
-            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+          description: "The x / horizontal pixel coordinate of the click."
         },
         y: {
           type: "number",
-          description:
-            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+          description: "The y / vertical pixel coordinate of the click."
         }
       }
     }
@@ -84,19 +115,17 @@ const tools = [
     type: "custom",
     name: "double_click",
     description:
-      "Double click the mouse button at designated location on the screen.",
+      "Perform a mouse cursor double click on the screen at the given pixel coordinates.",
     input_schema: {
       type: "object",
       properties: {
         x: {
           type: "number",
-          description:
-            "The x pixel coordinate of the location to click. Ranging from 1 to 1280."
+          description: "The x / horizontal pixel coordinate of the click."
         },
         y: {
           type: "number",
-          description:
-            "The y pixel coordinate of the location to click. Ranging from 1 to 720."
+          description: "The y / vertical pixel coordinate of the click."
         }
       }
     }
@@ -105,29 +134,29 @@ const tools = [
     type: "custom",
     name: "drag",
     description:
-      "Drag the mouse with left button held down from one location to another on the screen. Useful for moving windows, selecting text, or dragging and dropping items.",
+      "Perform a mouse cursor drag from the given pixel coordinates to the given pixel coordinates.",
     input_schema: {
       type: "object",
       properties: {
         x1: {
           type: "number",
           description:
-            "The x pixel coordinate where the drag starts. Ranging from 1 to 1280."
+            "The x / horizontal pixel coordinate of the start of the drag."
         },
         y1: {
           type: "number",
           description:
-            "The y pixel coordinate where the drag starts. Ranging from 1 to 720."
+            "The y / vertical pixel coordinate of the start of the drag."
         },
         x2: {
           type: "number",
           description:
-            "The x pixel coordinate where the drag ends. Ranging from 1 to 1280."
+            "The x / horizontal pixel coordinate of the end of the drag."
         },
         y2: {
           type: "number",
           description:
-            "The y pixel coordinate where the drag ends. Ranging from 1 to 720."
+            "The y / vertical pixel coordinate of the end of the drag."
         }
       }
     }
@@ -136,19 +165,22 @@ const tools = [
     type: "custom",
     name: "type",
     description:
-      "Perform a sequence of keyboard inputs. Note this should be used after you click and focus the cursor on the text input field, etc.",
+      "Type the given text at the given pixel coordinates. What this will do is first perform a mouse cursorleft click at the given pixel coordinates, and then type the given text.",
     input_schema: {
       type: "object",
       properties: {
-        text: {
-          type: "string",
-          description:
-            "The text to type. Can be any string valid for US keyboard, and can include special characters like `, *, etc."
+        text: { type: "string", description: "The text to type." },
+        x: {
+          type: "number",
+          description: "The x / horizontal pixel coordinate of the text."
+        },
+        y: {
+          type: "number",
+          description: "The y / vertical pixel coordinate of the text."
         }
       }
     }
-  },
-  { type: "bash_20250124", name: "bash" }
+  }
 ]
 
 export default class Agent {
@@ -159,20 +191,234 @@ export default class Agent {
       apiKey: process.env.ANTHROPIC_API_KEY
     })
 
-    this.system =
-      baseSystem.trim() +
-      `\n\n` +
-      (process.platform === "win32"
-        ? windowsPrompt
-        : process.platform === "linux"
-        ? linuxPrompt
-        : macosPrompt)
+    this.system = system.trim()
 
     this.messages = []
     this.terminal = new Terminal()
 
     // For handling confirmation responses
     this.pendingConfirmation = null
+  }
+
+  async query(query, pushEvent) {
+    const isTestQuery = await this.handleTestQuery(query, pushEvent)
+    if (isTestQuery) {
+      return { success: true }
+    }
+
+    this.messages.push({ role: "user", content: query })
+    let hasNextTurn = true // Start with true to enter the loop
+    while (hasNextTurn) {
+      hasNextTurn = false // Reset to false at start of each iteration
+
+      const response = await this.anthropicClient.beta.messages.create({
+        model: "claude-sonnet-4-20250514",
+        tools: tools,
+        system: this.system,
+        messages: this.messages,
+        max_tokens: 2048,
+        temperature: 0,
+        stream: false
+      })
+
+      this.messages.push({ role: "assistant", content: response.content })
+
+      for (const content of response.content) {
+        if (content.type === "text") {
+          pushEvent({ type: "text", content: content.text })
+        } else if (content.type === "tool_use") {
+          hasNextTurn = true // Continue to next turn after tool use
+          switch (content.name) {
+            case "bash":
+              pushEvent({ type: "bash", content: content.input.command })
+
+              // Wait for user confirmation via frontend
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+
+              if (confirmed) {
+                // Execute the command and push the result
+                const execResult = await this.terminal.execute(
+                  content.input.command
+                )
+                pushEvent({
+                  type: "bash",
+                  content: content.input.command,
+                  result: execResult
+                })
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: execResult
+                    }
+                  ]
+                })
+              }
+              break
+            case "screenshot":
+              pushEvent({
+                type: "text",
+                content: "\n\n*📸 Taking a look at the screen...*\n\n"
+              })
+              const screenshot = await this.ioClient.takeScreenshot()
+
+              this.messages.push({
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: content.id,
+                    content: [
+                      {
+                        type: "image",
+                        source: {
+                          type: "base64",
+                          media_type: "image/jpeg",
+                          data: screenshot.base64
+                        }
+                      }
+                    ]
+                  }
+                ]
+              })
+              break
+            default:
+              pushEvent({
+                type: "error",
+                content: `Unknown tool use: ${content.name}`
+              })
+              this.messages.push({
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: content.id,
+                    content: "Unknown tool use. Please use tools listed!"
+                  }
+                ]
+              })
+              break
+          }
+        }
+      }
+    }
+
+    // Check if API key exists
+    if (!process.env.ANTHROPIC_API_KEY) {
+      pushEvent({
+        type: "text",
+        content:
+          "Error: Anthropic API key not found. Please add it in settings."
+      })
+      return { success: false, error: "Missing API key" }
+    }
+
+    try {
+      // Stream response from Anthropic API
+      const stream = this.anthropicClient.messages.stream({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2048,
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: query
+          }
+        ]
+      })
+
+      stream.on("text", (text) => {
+        pushEvent({
+          type: "text",
+          content: text
+        })
+      })
+
+      stream.on("error", (error) => {
+        pushEvent({
+          type: "text",
+          content: `Stream error: ${error.message}`
+        })
+      })
+
+      // Wait for the stream to complete
+      await stream.done()
+      return { success: true }
+    } catch (error) {
+      pushEvent({
+        type: "text",
+        content: `Error: ${error.message}`
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
+  async handleTestQuery(query, pushEvent) {
+    // process hardcoded test queries
+    switch (query) {
+      case "/messages":
+        return true
+
+      case "/screenshot":
+        const screenshot = await this.ioClient.takeScreenshot()
+        pushEvent({
+          type: "image",
+          content: `data:image/jpeg;base64,${screenshot.base64}`
+        })
+        return true
+
+      case "/annotated-screenshot":
+        const testDots = [
+          { label: "drag", x: 100, y: 100 },
+          { label: "drop", x: 300, y: 719 }
+        ]
+        const annotatedScreenshot =
+          await this.ioClient.takeScreenshotWithAnnotation(testDots)
+        if (annotatedScreenshot.success) {
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${annotatedScreenshot.base64}`
+          })
+        } else {
+          pushEvent({
+            type: "text",
+            content: `Annotated screenshot failed: ${annotatedScreenshot.error}`
+          })
+        }
+        return true
+
+      case "/bash":
+        try {
+          const cmd = "cd ~/Desktop/workfile/shadcn-learn && npm run dev"
+          pushEvent({ type: "bash", content: cmd })
+
+          // Wait for user confirmation via frontend
+          const confirmed = await new Promise((resolve) => {
+            this.pendingConfirmation = resolve
+          })
+
+          if (confirmed) {
+            // Execute the command and push the result
+            const execResult = await this.terminal.execute(cmd)
+            pushEvent({ type: "bash", content: cmd, result: execResult })
+          } else {
+            pushEvent({ type: "text", content: "Command cancelled." })
+          }
+        } catch (error) {
+          pushEvent({
+            type: "text",
+            content: `Hardcoded streaming error: ${error.message}`
+          })
+        }
+        return true
+
+      default:
+        return false
+    }
   }
 
   // Convert full length base64 to `qweasd[...][chars]` for logging & debugging
@@ -226,156 +472,6 @@ export default class Agent {
     if (this.pendingConfirmation) {
       this.pendingConfirmation(confirmed)
       this.pendingConfirmation = null
-    }
-  }
-
-  async takeScreenshot(pushEvent) {
-    try {
-      const screenshot = await this.ioClient.takeScreenshot()
-      if (screenshot.success) {
-        pushEvent({
-          type: "image",
-          content: `data:image/jpeg;base64,${screenshot.base64}`
-        })
-        return { success: true }
-      } else {
-        pushEvent({
-          type: "text",
-          content: `Screenshot failed: ${screenshot.error}`
-        })
-        return { success: false, error: screenshot.error }
-      }
-    } catch (error) {
-      pushEvent({
-        type: "text",
-        content: `Screenshot error: ${error.message}`
-      })
-      return { success: false, error: error.message }
-    }
-  }
-
-  async query(query, pushEvent, hardcode = false) {
-    // Check if API key exists
-    if (!hardcode && !process.env.ANTHROPIC_API_KEY) {
-      pushEvent({
-        type: "text",
-        content:
-          "Error: Anthropic API key not found. Please add it in settings."
-      })
-      return { success: false, error: "Missing API key" }
-    }
-
-    // Hardcoded response for testing
-    if (hardcode) {
-      try {
-        // 3. Terminal command message
-        pushEvent({
-          type: "text",
-          content: "3. Terminal command message"
-        })
-        await new Promise((resolve) => setTimeout(resolve, 500))
-
-        pushEvent({
-          type: "bash",
-          content:
-            "ls -la /home/user && cd desktop/workfile && ls -la && npm install && npm run dev"
-        })
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-
-        // 4. Error message
-        pushEvent({
-          type: "text",
-          content: "4. Error message"
-        })
-        await new Promise((resolve) => setTimeout(resolve, 500))
-
-        pushEvent({
-          type: "error",
-          content: "This is an example error message"
-        })
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // 5. Image message
-        pushEvent({
-          type: "text",
-          content: "5. Image message"
-        })
-        await new Promise((resolve) => setTimeout(resolve, 500))
-
-        pushEvent({
-          type: "image",
-          content:
-            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzQ0NzBmZiIgcng9IjEwIi8+CiAgPHRleHQgeD0iMTAwIiB5PSI1NSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TYW1wbGUgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=="
-        })
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // 6. Confirmation message
-        pushEvent({
-          type: "confirmation",
-          content: "Do you want to continue with the demo?"
-        })
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // 7. Final text message
-        pushEvent({
-          type: "text",
-          content: "7. Final text message"
-        })
-        await new Promise((resolve) => setTimeout(resolve, 500))
-
-        pushEvent({
-          type: "text",
-          content:
-            "That's all the different message types! Pretty cool, right? 🎉"
-        })
-
-        return { success: true }
-      } catch (error) {
-        pushEvent({
-          type: "text",
-          content: `Hardcoded streaming error: ${error.message}`
-        })
-        return { success: false, error: error.message }
-      }
-    }
-
-    try {
-      // Stream response from Anthropic API
-      const stream = this.anthropicClient.messages.stream({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2048,
-        temperature: 0,
-        messages: [
-          {
-            role: "user",
-            content: query
-          }
-        ]
-      })
-
-      stream.on("text", (text) => {
-        pushEvent({
-          type: "text",
-          content: text
-        })
-      })
-
-      stream.on("error", (error) => {
-        pushEvent({
-          type: "text",
-          content: `Stream error: ${error.message}`
-        })
-      })
-
-      // Wait for the stream to complete
-      await stream.done()
-      return { success: true }
-    } catch (error) {
-      pushEvent({
-        type: "text",
-        content: `Error: ${error.message}`
-      })
-      return { success: false, error: error.message }
     }
   }
 

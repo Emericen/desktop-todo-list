@@ -83,6 +83,8 @@ export function TerminalMessage({ message }) {
   }
 
   const handleCancel = async () => {
+    setIsExecuted(true)
+    setResult({ success: false, error: "Command cancelled", executionTime: 0 })
     setAwaitingUserResponse(false)
     await window.api.confirmCommand(false)
   }
@@ -146,21 +148,21 @@ export function TerminalMessage({ message }) {
             <div className="flex justify-end gap-2">
               <Button
                 size="sm"
+                variant="ghost"
+                onClick={handleCancel}
+                className="h-8 px-4 bg-gray-900 text-white border-gray-700 hover:bg-gray-800 hover:border-gray-600"
+              >
+                Cancel
+                <Delete className="h-3 w-3 ml-1" />
+              </Button>
+              <Button
+                size="sm"
                 variant="outline"
                 onClick={handleConfirm}
                 className="h-8 px-4 bg-white text-black border-white hover:bg-gray-100"
               >
                 Execute
                 <CornerDownLeft className="h-3 w-3 ml-1" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancel}
-                className="h-8 px-4 bg-gray-900 text-white border-gray-700 hover:bg-gray-800 hover:border-gray-600"
-              >
-                Cancel
-                <Delete className="h-3 w-3 ml-1" />
               </Button>
             </div>
           </>
@@ -304,7 +306,7 @@ export function ConfirmationMessage({ message, index }) {
         message.answered ? "opacity-50" : ""
       } transition-opacity duration-200`}
     >
-      <blockquote className="border-l-4 border-blue-500 pl-4">
+      <blockquote className="border-l-4 pl-4">
         <p className="text-base font-medium text-foreground mb-3">
           {message.content}
         </p>
@@ -324,6 +326,16 @@ export function ConfirmationMessage({ message, index }) {
           </div>
           <Button
             size="sm"
+            variant="ghost"
+            onClick={handleReject}
+            disabled={message.answered !== null}
+            className="h-8 px-4"
+          >
+            NO
+            <Delete className="h-3 w-3 ml-1" />
+          </Button>
+          <Button
+            size="sm"
             variant="default"
             onClick={handleApprove}
             disabled={message.answered !== null}
@@ -331,16 +343,6 @@ export function ConfirmationMessage({ message, index }) {
           >
             YES
             <CornerDownLeft className="h-3 w-3 ml-1" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleReject}
-            disabled={message.answered !== null}
-            className="h-8 px-4"
-          >
-            NO
-            <Delete className="h-3 w-3 ml-1" />
           </Button>
         </div>
       </blockquote>
