@@ -7,7 +7,6 @@ import {
   showChatWindow,
   toggleChatWindow
 } from "./windows/chat.js"
-import { createSettingsWindow } from "./windows/settings.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
 import OpenAIClient from "./clients/openai.js"
 import { registerShortcuts, unregisterAllShortcuts } from "./shortcuts.js"
@@ -34,9 +33,6 @@ app.whenReady().then(() => {
     }
   })
 
-  // Register global shortcuts (can later be loaded from settings)
-  registerShortcuts({ "Alt+P": toggleChatWindow })
-
   // Initialize clients
   const openaiClient = new OpenAIClient()
 
@@ -48,21 +44,10 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // ========= SETTINGS MANAGEMENT =========
-  const defaultSettings = {
-    globalShortcuts: {
-      toggleWindow: "Alt+P"
-    }
-  }
-
-  // TODO: Load settings from file/storage
-  let currentSettings = { ...defaultSettings }
+  // Register fixed global shortcut
+  registerShortcuts({ "Alt+P": toggleChatWindow })
 
   // ========= IPC HANDLERS =========
-  ipcMain.handle("get-settings", async () => {
-    return currentSettings
-  })
-
   ipcMain.handle("query", async (event, payload) => {
     const pushEvent = (eventData) => {
       // Ensure chat window is visible for every event so the user can see agent progress
@@ -85,22 +70,14 @@ app.whenReady().then(() => {
     return { success: true }
   })
 
-  ipcMain.handle("take-screenshot", async (event) => {
-    const pushEvent = (eventData) => {
-      // Ensure chat window is visible for every event so the user can see agent progress
-      showChatWindow()
-      event.sender.send("response-event", eventData)
-    }
-
-    return await agent.takeScreenshot(pushEvent)
-  })
-
   // ========= WINDOWS AND TRAY =========
   createChatWindow() // Create window at startup
 
   createSystemTray({
     onShowChat: () => showChatWindow(),
-    onOpenSettings: () => createSettingsWindow(),
+    onOpenAccount: () => {
+      // TODO: open account home page url
+    },
     onQuit: () => app.quit()
   })
 

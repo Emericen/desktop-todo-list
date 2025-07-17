@@ -23,42 +23,21 @@ const api = {
     }
   },
 
-  // Get current settings from main process
-  getSettings: () => ipcRenderer.invoke("get-settings"),
+  // Transcribe audio using OpenAI Whisper
+  transcribeAudio: (payload) => ipcRenderer.invoke("transcribe", payload),
 
-  // Listen to push events from main (e.g., screenshot before window shows)
+  // Handle user confirmation for action prompts
+  handleConfirmation: (confirmed) =>
+    ipcRenderer.invoke("confirm-command", confirmed),
+
+  // Listen to push events from backend. can be text, image, or confirmation
   onPush: (cb) => ipcRenderer.on("backend-push", (_e, data) => cb(data)),
 
   // Listen to focus query input events
   onFocusQueryInput: (cb) => ipcRenderer.on("focus-query-input", cb),
 
   // Listen to clear messages events
-  onClearMessages: (cb) => ipcRenderer.on("clear-messages", cb),
-
-  // Transcribe audio using OpenAI Whisper
-  transcribeAudio: (payload) => ipcRenderer.invoke("transcribe", payload),
-
-  // Confirm or cancel command execution
-  confirmCommand: (confirmed) => ipcRenderer.invoke("confirm-command", confirmed),
-
-  // Take a screenshot and stream the result
-  takeScreenshot: (onAgentEvent) => {
-    if (onAgentEvent) {
-      // Listen for agent events (including the image)
-      const handleAgentEvent = (_e, eventData) => onAgentEvent(eventData)
-      ipcRenderer.on("response-event", handleAgentEvent)
-
-      // Send the screenshot request
-      return ipcRenderer.invoke("take-screenshot").then((result) => {
-        // Clean up listener when done
-        ipcRenderer.removeListener("response-event", handleAgentEvent)
-        return result
-      })
-    } else {
-      // Fallback for non-streaming usage
-      return ipcRenderer.invoke("take-screenshot")
-    }
-  }
+  onClearMessages: (cb) => ipcRenderer.on("clear-messages", cb)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

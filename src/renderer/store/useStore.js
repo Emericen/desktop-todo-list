@@ -5,7 +5,7 @@ import { create } from "zustand"
 // Settings are hydrated from the backend on startup and kept in sync via the `settings-updated` channel.
 
 const useStore = create((set, get) => ({
-  settings: null,
+  // deprecated settings removed
   messages: [],
   isTranscribing: false,
   awaitingUserResponse: false,
@@ -15,23 +15,8 @@ const useStore = create((set, get) => ({
     // { id: "O3", name: "O3" },
   ],
 
-  // Theme state
-  theme: "dark", // 'light' or 'dark'
-
   // New flag to indicate audio is being processed by API
   isProcessingAudio: false,
-
-  // Load settings from main process
-  loadSettings: async () => {
-    try {
-      if (window.api?.getSettings) {
-        const settings = await window.api.getSettings()
-        set({ settings })
-      }
-    } catch (error) {
-      console.error("Failed to load settings:", error)
-    }
-  },
 
   addMessage: (message) =>
     set((state) => ({
@@ -304,31 +289,7 @@ const useStore = create((set, get) => ({
   },
 
   // Added setter for processing flag
-  setIsProcessingAudio: (val) => set({ isProcessingAudio: val }),
-
-  // Theme functions
-  toggleTheme: () => 
-    set((state) => {
-      const newTheme = state.theme === "light" ? "dark" : "light"
-      // Apply theme class to document
-      if (newTheme === "dark") {
-        document.documentElement.classList.add("dark")
-      } else {
-        document.documentElement.classList.remove("dark")
-      }
-      return { theme: newTheme }
-    }),
-
-  setTheme: (theme) => 
-    set(() => {
-      // Apply theme class to document
-      if (theme === "dark") {
-        document.documentElement.classList.add("dark")
-      } else {
-        document.documentElement.classList.remove("dark")
-      }
-      return { theme }
-    })
+  setIsProcessingAudio: (val) => set({ isProcessingAudio: val })
 }))
 
 // Attach backend-push listener globally once store is defined

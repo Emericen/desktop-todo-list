@@ -79,14 +79,14 @@ export function TerminalMessage({ message }) {
     setIsExecuted(true)
     setAwaitingUserResponse(false)
     // Send confirmation to backend
-    await window.api.confirmCommand(true)
+    await window.api.handleConfirmation(true)
   }
 
   const handleCancel = async () => {
     setIsExecuted(true)
     setResult({ success: false, error: "Command cancelled", executionTime: 0 })
     setAwaitingUserResponse(false)
-    await window.api.confirmCommand(false)
+    await window.api.handleConfirmation(false)
   }
 
   // Set awaiting response when component mounts and not executed
@@ -255,14 +255,14 @@ export function ConfirmationMessage({ message, index }) {
     selectChoice(index, "approved")
     setAwaitingUserResponse(false)
     // Send confirmation to backend
-    await window.api.confirmCommand(true)
+    await window.api.handleConfirmation(true)
   }
 
   const handleReject = async () => {
     selectChoice(index, "rejected")
     setAwaitingUserResponse(false)
     // Send confirmation to backend
-    await window.api.confirmCommand(false)
+    await window.api.handleConfirmation(false)
   }
 
   // Set awaiting response when component mounts and not answered

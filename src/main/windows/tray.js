@@ -4,7 +4,7 @@ import { Tray, Menu, nativeImage, app } from "electron"
 let tray = null
 
 export function createSystemTray(callbacks = {}) {
-  const { onShowChat, onOpenSettings, onQuit } = callbacks
+  const { onShowChat, onOpenAccount, onQuit } = callbacks
 
   // Create a simple white square icon (16x16)
   const size = 16
@@ -23,14 +23,14 @@ export function createSystemTray(callbacks = {}) {
         if (onShowChat) onShowChat()
       }
     },
-    { type: "separator" },
+    // { type: "separator" },
     {
-      label: "Settings",
+      label: "Account",
       click: () => {
-        if (onOpenSettings) onOpenSettings()
+        if (onOpenAccount) onOpenAccount()
       }
     },
-    { type: "separator" },
+    // { type: "separator" },
     {
       label: "Quit",
       click: () => {
