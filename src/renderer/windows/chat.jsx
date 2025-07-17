@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from "react"
 import QueryBar from "@/components/QueryBar"
 import useStore from "@/store/useStore"
+import { Button } from "@/components/ui/button"
 import {
   UserMessage,
   TextMessage,
@@ -14,9 +15,12 @@ import {
 export default function ChatWindow() {
   const messages = useStore((s) => s.messages)
   const settings = useStore((s) => s.settings)
+  const theme = useStore((s) => s.theme)
   const loadSettings = useStore((s) => s.loadSettings)
   const toggleTranscription = useStore((s) => s.toggleTranscription)
   const clearMessages = useStore((s) => s.clearMessages)
+  const toggleTheme = useStore((s) => s.toggleTheme)
+  const setTheme = useStore((s) => s.setTheme)
   const shortcut = settings?.globalShortcuts?.toggleWindow
 
   const bottomRef = useRef(null)
@@ -25,6 +29,11 @@ export default function ChatWindow() {
   useEffect(() => {
     loadSettings()
   }, [loadSettings])
+
+  // Initialize theme on component mount
+  useEffect(() => {
+    setTheme(theme)
+  }, [setTheme, theme])
 
   // Handle Alt+\ for transcription toggle
   useEffect(() => {
@@ -60,10 +69,19 @@ export default function ChatWindow() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Fixed header always visible */}
       <div
-        className="fixed top-0 left-0 right-0 h-6 flex items-center pl-2 select-none text-xs text-muted-foreground z-50 bg-background border-b border-border"
+        className="fixed top-0 left-0 right-0 h-6 flex items-center justify-between pl-2 pr-2 select-none text-xs text-muted-foreground z-50 bg-background border-b border-border"
         style={{ WebkitAppRegion: "drag" }}
       >
-        {`Press ${shortcut} to toggle`}
+        <span>{`Press ${shortcut} to toggle`}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleTheme}
+          className="h-4 w-4 p-0 hover:bg-accent"
+          style={{ WebkitAppRegion: "no-drag" }}
+        >
+          {theme === "dark" ? "🌞" : "🌙"}
+        </Button>
       </div>
 
       {/* Offset main content to avoid overlapping header */}

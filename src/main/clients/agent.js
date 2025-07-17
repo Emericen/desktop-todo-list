@@ -185,6 +185,74 @@ const tools = [
         }
       }
     }
+  },
+  {
+    type: "custom",
+    name: "scroll",
+    description:
+      "Scroll within a specific area of the screen. Use x,y coordinates to target which scrollable area (since pages can have multiple scrollable regions).",
+    input_schema: {
+      type: "object",
+      properties: {
+        pixels: {
+          type: "number",
+          description:
+            "Number of pixels to scroll. Positive = down, negative = up."
+        },
+        x: {
+          type: "number",
+          description: "X coordinate within the scrollable area to target."
+        },
+        y: {
+          type: "number",
+          description: "Y coordinate within the scrollable area to target."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
+    name: "page_down",
+    description:
+      "Scroll down one page using the standard Page Down keyboard shortcut. More efficient than pixel scrolling for navigating content.",
+    input_schema: { type: "object", properties: {} }
+  },
+  {
+    type: "custom",
+    name: "page_up",
+    description:
+      "Scroll up one page using the standard Page Up keyboard shortcut. More efficient than pixel scrolling for navigating content.",
+    input_schema: { type: "object", properties: {} }
+  },
+  {
+    type: "custom",
+    name: "keyboard_hotkey",
+    description: `Execute keyboard shortcuts and key combinations. ${
+      process.platform === "darwin"
+        ? "On macOS, use 'cmd' for Command key (⌘). Common shortcuts: cmd+c (copy), cmd+v (paste), cmd+a (select all), cmd+z (undo)."
+        : "On Windows/Linux, use 'ctrl' for Control key. Common shortcuts: ctrl+c (copy), ctrl+v (paste), ctrl+a (select all), ctrl+z (undo)."
+    } You can combine multiple modifier keys like ['cmd', 'shift', 'z'] for redo.`,
+    input_schema: {
+      type: "object",
+      properties: {
+        keys: {
+          type: "array",
+          items: { type: "string" },
+          description: `Array of key names to press simultaneously. Available keys: 
+          - Modifiers: 'cmd'/'command' (${
+            process.platform === "darwin" ? "⌘" : "maps to ctrl on non-Mac"
+          }), 'ctrl'/'control', 'alt'/'option', 'shift'
+          - Letters: 'a' through 'z'
+          - Numbers: '0' through '9'  
+          - Special: 'tab', 'enter'/'return', 'space', 'backspace', 'delete', 'escape'/'esc'
+          - Arrows: 'up', 'down', 'left', 'right'
+          - Navigation: 'page_up', 'page_down', 'home', 'end'
+          - Function: 'f1' through 'f12'
+          Examples: ['cmd', 'c'] for copy, ['ctrl', 'alt', 'delete'] for task manager`
+        }
+      },
+      required: ["keys"]
+    }
   }
 ]
 
@@ -315,13 +383,29 @@ export default class Agent {
               })
               if (confirmed) {
                 await this.ioClient.leftClick(x, y)
+                // Wait briefly then take screenshot to show result
+                await new Promise((resolve) => setTimeout(resolve, 100))
+                const resultScreenshot = await this.ioClient.takeScreenshot()
                 this.messages.push({
                   role: "user",
                   content: [
                     {
                       type: "tool_result",
                       tool_use_id: content.id,
-                      content: "OK"
+                      content: [
+                        {
+                          type: "text",
+                          text: `✅ Left clicked at (${x}, ${y})`
+                        },
+                        {
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: resultScreenshot.base64
+                          }
+                        }
+                      ]
                     }
                   ]
                 })
@@ -349,13 +433,29 @@ export default class Agent {
               })
               if (confirmed) {
                 await this.ioClient.rightClick(x, y)
+                // Wait briefly then take screenshot to show result
+                await new Promise((resolve) => setTimeout(resolve, 100))
+                const resultScreenshot = await this.ioClient.takeScreenshot()
                 this.messages.push({
                   role: "user",
                   content: [
                     {
                       type: "tool_result",
                       tool_use_id: content.id,
-                      content: "OK"
+                      content: [
+                        {
+                          type: "text",
+                          text: `✅ Right clicked at (${x}, ${y})`
+                        },
+                        {
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: resultScreenshot.base64
+                          }
+                        }
+                      ]
                     }
                   ]
                 })
@@ -383,13 +483,29 @@ export default class Agent {
               })
               if (confirmed) {
                 await this.ioClient.doubleClick(x, y)
+                // Wait briefly then take screenshot to show result
+                await new Promise((resolve) => setTimeout(resolve, 100))
+                const resultScreenshot = await this.ioClient.takeScreenshot()
                 this.messages.push({
                   role: "user",
                   content: [
                     {
                       type: "tool_result",
                       tool_use_id: content.id,
-                      content: "OK"
+                      content: [
+                        {
+                          type: "text",
+                          text: `✅ Double clicked at (${x}, ${y})`
+                        },
+                        {
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: resultScreenshot.base64
+                          }
+                        }
+                      ]
                     }
                   ]
                 })
@@ -423,13 +539,83 @@ export default class Agent {
               })
               if (confirmed) {
                 await this.ioClient.leftClickDrag(x1, y1, x2, y2)
+                // Wait briefly then take screenshot to show result
+                await new Promise((resolve) => setTimeout(resolve, 100))
+                const resultScreenshot = await this.ioClient.takeScreenshot()
                 this.messages.push({
                   role: "user",
                   content: [
                     {
                       type: "tool_result",
                       tool_use_id: content.id,
-                      content: "OK"
+                      content: [
+                        {
+                          type: "text",
+                          text: `✅ Dragged from (${x1}, ${y1}) to (${x2}, ${y2})`
+                        },
+                        {
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: resultScreenshot.base64
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                })
+              } else {
+                // User cancelled - just break out of query
+                pushEvent({ type: "text", content: "Action cancelled." })
+                return { success: true }
+              }
+              break
+            }
+            case "scroll": {
+              const pixels = content.input.pixels
+              const x = content.input.x
+              const y = content.input.y
+              const scrollAnnotation =
+                await this.ioClient.takeScreenshotWithAnnotation([
+                  { label: "Scroll", x: x, y: y }
+                ])
+              pushEvent({
+                type: "image",
+                content: `data:image/jpeg;base64,${scrollAnnotation.base64}`
+              })
+              pushEvent({
+                type: "confirmation",
+                content: `Scroll ${pixels} pixels here?`
+              })
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+              if (confirmed) {
+                await this.ioClient.scroll(pixels, x, y)
+                // Wait briefly then take screenshot to show result
+                await new Promise((resolve) => setTimeout(resolve, 100))
+                const resultScreenshot = await this.ioClient.takeScreenshot()
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: [
+                        {
+                          type: "text",
+                          text: `✅ Scrolled ${pixels} pixels at (${x}, ${y})`
+                        },
+                        {
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: resultScreenshot.base64
+                          }
+                        }
+                      ]
                     }
                   ]
                 })
@@ -459,10 +645,12 @@ export default class Agent {
               })
               if (confirmed) {
                 await this.ioClient.typeText(x, y, text)
-                const screenshot = await this.ioClient.takeScreenshot()
+                // Wait briefly then take screenshot to show result
+                await new Promise((resolve) => setTimeout(resolve, 100))
+                const resultScreenshot = await this.ioClient.takeScreenshot()
                 pushEvent({
                   type: "image",
-                  content: `data:image/jpeg;base64,${screenshot.base64}`
+                  content: `data:image/jpeg;base64,${resultScreenshot.base64}`
                 })
 
                 // Record success with screenshot
@@ -472,28 +660,70 @@ export default class Agent {
                     {
                       type: "tool_result",
                       tool_use_id: content.id,
-                      content: "OK"
-                    }
-                  ]
-                })
-                
-                // Add screenshot as separate message for context
-                this.messages.push({
-                  role: "user", 
-                  content: [
-                    {
-                      type: "image",
-                      source: {
-                        type: "base64",
-                        media_type: "image/jpeg",
-                        data: screenshot.base64
-                      }
+                      content: [
+                        {
+                          type: "text",
+                          text: `✅ Typed "${text}" at (${x}, ${y})`
+                        },
+                        {
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: resultScreenshot.base64
+                          }
+                        }
+                      ]
                     }
                   ]
                 })
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
+                return { success: true }
+              }
+              break
+            }
+            case "keyboard_hotkey": {
+              const keys = content.input.keys
+              pushEvent({
+                type: "confirmation",
+                content: `Execute keyboard shortcut: ${keys.join(" + ")}?`
+              })
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+              if (confirmed) {
+                await this.ioClient.keyboardHotkey(keys)
+                // Wait briefly then take screenshot to show result
+                await new Promise((resolve) => setTimeout(resolve, 100))
+                const resultScreenshot = await this.ioClient.takeScreenshot()
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: [
+                        {
+                          type: "text",
+                          text: `✅ Executed hotkey: ${keys.join(" + ")}`
+                        },
+                        {
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: resultScreenshot.base64
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                })
+              } else {
+                // User cancelled - just break out of query
+                pushEvent({ type: "text", content: "Hotkey cancelled." })
                 return { success: true }
               }
               break
@@ -590,6 +820,39 @@ export default class Agent {
         }
         return true
 
+      case "/double_click":
+        try {
+          const x = 200
+          const y = 200
+          const doubleClickAnnotation =
+            await this.ioClient.takeScreenshotWithAnnotation([
+              { label: "Double Click", x: x, y: y }
+            ])
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${doubleClickAnnotation.base64}`
+          })
+          pushEvent({ type: "confirmation", content: "Double click here?" })
+          const confirmed = await new Promise((resolve) => {
+            this.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.ioClient.doubleClick(x, y)
+            pushEvent({
+              type: "text",
+              content: "✅ Double clicked successfully"
+            })
+          } else {
+            pushEvent({ type: "text", content: "Double click cancelled." })
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Hardcoded streaming error: ${error.message}`
+          })
+        }
+        return true
+
       case "/type":
         try {
           const x = 100
@@ -611,6 +874,12 @@ export default class Agent {
           })
           if (confirmed) {
             await this.ioClient.typeText(x, y, text)
+            this.messages.push({
+              role: "user",
+              content: [
+                { type: "tool_result", tool_use_id: content.id, content: "OK" }
+              ]
+            })
           }
         } catch (error) {
           pushEvent({
@@ -644,6 +913,40 @@ export default class Agent {
           })
           if (confirmed) {
             await this.ioClient.leftClickDrag(x1, y1, x2, y2)
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Hardcoded streaming error: ${error.message}`
+          })
+        }
+        return true
+
+      case "/hotkey":
+        try {
+          const testKeys =
+            process.platform === "darwin" ? ["cmd", "c"] : ["ctrl", "c"]
+          pushEvent({
+            type: "confirmation",
+            content: `Execute keyboard shortcut: ${testKeys.join(" + ")}?`
+          })
+          const confirmed = await new Promise((resolve) => {
+            this.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.ioClient.keyboardHotkey(testKeys)
+            pushEvent({
+              type: "text",
+              content: `✅ Executed hotkey: ${testKeys.join(" + ")}`
+            })
+            this.messages.push({
+              role: "user",
+              content: [
+                { type: "tool_result", tool_use_id: content.id, content: "OK" }
+              ]
+            })
+          } else {
+            pushEvent({ type: "text", content: "Hotkey cancelled." })
           }
         } catch (error) {
           pushEvent({

@@ -9,7 +9,6 @@ import {
 } from "./windows/chat.js"
 import { createSettingsWindow } from "./windows/settings.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
-import AnthropicClient from "./clients/anthropic.js"
 import OpenAIClient from "./clients/openai.js"
 import { registerShortcuts, unregisterAllShortcuts } from "./shortcuts.js"
 import Agent from "./clients/agent.js"
@@ -39,7 +38,6 @@ app.whenReady().then(() => {
   registerShortcuts({ "Alt+P": toggleChatWindow })
 
   // Initialize clients
-  const anthropicClient = new AnthropicClient()
   const openaiClient = new OpenAIClient()
 
   // Initialize Agent (creates its own IOClient internally)
@@ -71,13 +69,6 @@ app.whenReady().then(() => {
       showChatWindow()
       event.sender.send("response-event", eventData)
     }
-
-    // // Simple screenshot command
-    // if (payload.query.toLowerCase().trim() === "screenshot") {
-    //   const res = await agent.takeScreenshot(pushEvent)
-    //   event.sender.send("focus-query-input")
-    //   return res
-    // }
 
     const res = await agent.query(payload.query, pushEvent)
     event.sender.send("focus-query-input")

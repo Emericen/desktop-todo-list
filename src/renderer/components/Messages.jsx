@@ -157,9 +157,9 @@ export function TerminalMessage({ message }) {
               </Button>
               <Button
                 size="sm"
-                variant="outline"
+                variant="default"
                 onClick={handleConfirm}
-                className="h-8 px-4 bg-white text-black border-white hover:bg-gray-100"
+                className="h-8 px-4"
               >
                 Execute
                 <CornerDownLeft className="h-3 w-3 ml-1" />

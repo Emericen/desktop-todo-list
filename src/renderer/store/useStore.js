@@ -15,6 +15,9 @@ const useStore = create((set, get) => ({
     // { id: "O3", name: "O3" },
   ],
 
+  // Theme state
+  theme: "dark", // 'light' or 'dark'
+
   // New flag to indicate audio is being processed by API
   isProcessingAudio: false,
 
@@ -301,7 +304,31 @@ const useStore = create((set, get) => ({
   },
 
   // Added setter for processing flag
-  setIsProcessingAudio: (val) => set({ isProcessingAudio: val })
+  setIsProcessingAudio: (val) => set({ isProcessingAudio: val }),
+
+  // Theme functions
+  toggleTheme: () => 
+    set((state) => {
+      const newTheme = state.theme === "light" ? "dark" : "light"
+      // Apply theme class to document
+      if (newTheme === "dark") {
+        document.documentElement.classList.add("dark")
+      } else {
+        document.documentElement.classList.remove("dark")
+      }
+      return { theme: newTheme }
+    }),
+
+  setTheme: (theme) => 
+    set(() => {
+      // Apply theme class to document
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark")
+      } else {
+        document.documentElement.classList.remove("dark")
+      }
+      return { theme }
+    })
 }))
 
 // Attach backend-push listener globally once store is defined
