@@ -85,14 +85,30 @@ app.whenReady().then(() => {
     return { success: true }
   })
 
-  ipcMain.handle("take-screenshot", async (event) => {
-    const pushEvent = (eventData) => {
-      // Ensure chat window is visible for every event so the user can see agent progress
-      showChatWindow()
-      event.sender.send("response-event", eventData)
+  ipcMain.handle("update-settings", async (_event, newSettings) => {
+    console.log("Updating settings:", newSettings)
+
+    // Update current settings
+    currentSettings = { ...currentSettings, ...newSettings }
+
+    // Update global shortcuts if they changed
+    if (newSettings.globalShortcuts) {
+      const shortcuts = {}
+      if (newSettings.toggleOpenHotKey) {
+        shortcuts[newSettings.toggleOpenHotKey] = toggleChatWindow
+      }
+      if (newSettings.toggleTranscriptionHotKey) {
+        // TODO: Add transcription toggle handler
+        shortcuts[newSettings.toggleTranscriptionHotKey] = () =>
+          console.log("Toggle transcription")
+      }
+      registerShortcuts(shortcuts)
     }
 
-    return await agent.takeScreenshot(pushEvent)
+    // TODO: Save settings to file/storage for persistence
+    console.log("Settings updated:", currentSettings)
+
+    return { success: true }
   })
 
   // ========= WINDOWS AND TRAY =========

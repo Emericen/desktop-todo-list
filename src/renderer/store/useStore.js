@@ -310,25 +310,31 @@ const useStore = create((set, get) => ({
   toggleTheme: () => 
     set((state) => {
       const newTheme = state.theme === "light" ? "dark" : "light"
-      // Apply theme class to document
-      if (newTheme === "dark") {
-        document.documentElement.classList.add("dark")
-      } else {
-        document.documentElement.classList.remove("dark")
-      }
+      get().applyTheme(newTheme)
       return { theme: newTheme }
     }),
 
   setTheme: (theme) => 
     set(() => {
-      // Apply theme class to document
-      if (theme === "dark") {
+      get().applyTheme(theme)
+      return { theme }
+    }),
+
+  applyTheme: (theme) => {
+    if (theme === "system") {
+      // Detect system preference
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+      if (prefersDark) {
         document.documentElement.classList.add("dark")
       } else {
         document.documentElement.classList.remove("dark")
       }
-      return { theme }
-    })
+    } else if (theme === "dark") {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }
 }))
 
 // Attach backend-push listener globally once store is defined

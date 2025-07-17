@@ -23,8 +23,8 @@ export function createSettingsWindow() {
   const { width: screenWidth, height: screenHeight } =
     screen.getPrimaryDisplay().workAreaSize
 
-  const windowWidth = 480
-  const windowHeight = 620
+  const windowWidth = 900
+  const windowHeight = 700
 
   settingsWindow = new BrowserWindow({
     width: windowWidth,
