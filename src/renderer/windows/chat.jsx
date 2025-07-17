@@ -1,7 +1,6 @@
 import { useEffect, useCallback, useRef } from "react"
 import QueryBar from "@/components/QueryBar"
 import useStore from "@/store/useStore"
-import { Button } from "@/components/ui/button"
 import {
   UserMessage,
   TextMessage,
@@ -14,26 +13,25 @@ import {
 
 export default function ChatWindow() {
   const messages = useStore((s) => s.messages)
-  const settings = useStore((s) => s.settings)
-  const theme = useStore((s) => s.theme)
-  const loadSettings = useStore((s) => s.loadSettings)
+  // theme now follows system
   const toggleTranscription = useStore((s) => s.toggleTranscription)
   const clearMessages = useStore((s) => s.clearMessages)
-  const toggleTheme = useStore((s) => s.toggleTheme)
-  const setTheme = useStore((s) => s.setTheme)
-  const shortcut = settings?.globalShortcuts?.toggleWindow
+  const shortcut = "Alt+P"
 
   const bottomRef = useRef(null)
 
-  // Load settings on component mount
-  useEffect(() => {
-    loadSettings()
-  }, [loadSettings])
+  // no settings loading
 
-  // Initialize theme on component mount
+  // Apply system theme and listen for changes
   useEffect(() => {
-    setTheme(theme)
-  }, [setTheme, theme])
+    const mql = window.matchMedia("(prefers-color-scheme: dark)")
+    const apply = () => {
+      document.documentElement.classList.toggle("dark", mql.matches)
+    }
+    apply()
+    mql.addEventListener("change", apply)
+    return () => mql.removeEventListener("change", apply)
+  }, [])
 
   // Handle Alt+\ for transcription toggle
   useEffect(() => {
@@ -73,15 +71,6 @@ export default function ChatWindow() {
         style={{ WebkitAppRegion: "drag" }}
       >
         <span>{`Press ${shortcut} to toggle`}</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={toggleTheme}
-          className="h-4 w-4 p-0 hover:bg-accent"
-          style={{ WebkitAppRegion: "no-drag" }}
-        >
-          {theme === "dark" ? "🌞" : "🌙"}
-        </Button>
       </div>
 
       {/* Offset main content to avoid overlapping header */}

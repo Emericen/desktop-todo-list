@@ -1,4 +1,4 @@
-import pty from "node-pty"
+import pty from "@lydell/node-pty"
 
 export default class Terminal {
   constructor() {
