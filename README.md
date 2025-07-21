@@ -1,38 +1,28 @@
-# electron-template
+# Lychee Desktop Assistant
 
-An Electron application with React and AI agent integration.
+An AI-powered desktop assistant that lives on top of your screen, sees what you see, and can take action on your behalf with mouse, keyboard, and terminal access.
 
 ## Quick Start
 
+### Prerequisites
+
+- Node.js (v16 or higher)
+- An Anthropic API key
+
 ### Install
 
-This project uses both Node.js and Python, so you'll need to set up a Python virtual environment first.
-
-**Windows:**
 ```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-venv\Scripts\activate
-
 # Install dependencies
 npm install
 ```
 
-**macOS/Linux:**
-```bash
-# Create virtual environment
-python3 -m venv venv
+### Setup
 
-# Activate virtual environment
-source venv/bin/activate
-
-# Install dependencies
-npm install
+1. Create a `.env` file in the root directory
+2. Add your Anthropic API key:
 ```
-
-Note: The `npm install` command will also trigger the Python package installation process.
+ANTHROPIC_API_KEY=your_api_key_here
+```
 
 ### Development
 
@@ -40,43 +30,47 @@ Note: The `npm install` command will also trigger the Python package installatio
 npm run dev
 ```
 
-### Testing
-
-```bash
-npm run test
-```
-
 ### Build
 
 ```bash
-# For windows
-$ npm run build:win
+# For Windows
+npm run build:win
 
 # For macOS
-$ npm run build:mac
+npm run build:mac
 
 # For Linux
-$ npm run build:linux
+npm run build:linux
 ```
+
+## How to Use
+
+1. **Open/Close**: Press `Alt+P` to show/hide the chat window
+2. **Voice Input**: Press `Alt+\` to start/stop voice transcription
+3. **Type or speak** your request and the AI will:
+   - Take screenshots to see your screen
+   - Execute terminal commands (with your approval)
+   - Control mouse and keyboard
+   - Navigate applications and websites
 
 ## Current Limitations
 
-V1 introduced some limitations due to prioritizing faster time to market. In no particular order, here are the list of problems.
+- You can double submit queries while a previous one is still generating
+- Message UI components could be more standardized with consistent shadcn usage
+- All screenshots are resized to 1280x720 pixels regardless of monitor dimensions
+- Ultra-wide monitors (21:9, 32:9) and portrait monitors may experience stretching
+- No zoom functionality for better element identification on large monitors
 
-- You can double submit. You can submit query while the last query's answer is generating and you'll see tokens from 2 streams.
-- Message UI components are not standardized. We should use the right shadcn components for visual consistency and our `className` should only be layout and positional.
-  - I think I should learn css but specifically layout / positional.
-- All screenshots are resized to exactly 1280x720 pixels regardless of actual monitor dimensions. While sizing down is standard in CV, ultra-wide monitors (21:9, 32:9) and portrait monitors may experience stretching
-- No zoom functionality: Since images are sized down to 1280x720, large monitors with small UI elements may be difficult to identify for the agent. We can add zoom in and out tool for agent but we decided to deprioritize this for V1.
+## Future Work
 
+- Agent planning: Show list of planned actions → user approval → execute in background
+- Enhanced screenshot handling for different monitor aspect ratios
+- Zoom tools for better UI element detection
+- More sophisticated action chaining and workflows
 
-Also, here's a list of potential future work that does not block experience.
+## Architecture
 
-- We can migrate AI and OS logic to Python entirely and use FastAPI (which supports both HTTP and Websocket). We can keep pushing events to FE while using [keyring](https://github.com/jaraco/keyring) to store secrets.Lastly, here are the immediate todos.
-
-
-## TODO
-
-- Agent **loop**.
-- [Experiment] plan & list of actions first -> user approve -> hide window -> execute actions in multiple turns -> show window.
-
+- **Frontend**: React + Electron renderer with shadcn/ui components
+- **Backend**: Electron main process with Anthropic Claude integration
+- **AI Tools**: Screenshot capture, mouse/keyboard control, terminal execution
+- **Voice**: OpenAI Whisper for speech-to-text transcription

@@ -53,12 +53,12 @@ export function TextMessage({ message }) {
             </li>
           ),
           code: ({ children }) => (
-            <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">
+            <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono text-foreground">
               {children}
             </code>
           ),
           pre: ({ children }) => (
-            <pre className="bg-gray-100 p-3 rounded mb-4 overflow-x-auto">
+            <pre className="bg-muted p-3 rounded mb-4 overflow-x-auto text-foreground font-mono">
               {children}
             </pre>
           )

@@ -13,8 +13,10 @@ const api = {
 
       // Send the query
       return ipcRenderer.invoke("query", payload).then((result) => {
-        // Clean up listener when done
-        ipcRenderer.removeListener("response-event", handleAgentEvent)
+        // Wait a bit before cleanup to ensure all events are processed
+        setTimeout(() => {
+          ipcRenderer.removeListener("response-event", handleAgentEvent)
+        }, 100)
         return result
       })
     } else {

@@ -50,6 +50,7 @@ app.whenReady().then(() => {
   // ========= IPC HANDLERS =========
   ipcMain.handle("query", async (event, payload) => {
     const pushEvent = (eventData) => {
+      console.log("pushEvent:", eventData.type, eventData.content?.substring(0, 100))
       // Ensure chat window is visible for every event so the user can see agent progress
       showChatWindow()
       event.sender.send("response-event", eventData)

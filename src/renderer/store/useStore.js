@@ -100,8 +100,10 @@ const useStore = create((set, get) => ({
           selectedModel: get().selectedModel
         },
         (eventData) => {
+          console.log("Event received:", eventData.type, eventData.content?.substring(0, 100))
           // Handle structured event data
           if (isFirstEvent) {
+            console.log("First event - replacing loading message")
             // Replace loading message with the first response
             set((state) => {
               const updatedMessages = [...state.messages]
@@ -155,6 +157,7 @@ const useStore = create((set, get) => ({
               eventData.type === "text" &&
               get().messages[messageIndex]?.type === "text"
             ) {
+              console.log("Appending text to existing message at index", messageIndex)
               // Append text to existing text message
               set((state) => {
                 const updatedMessages = [...state.messages]
@@ -166,6 +169,7 @@ const useStore = create((set, get) => ({
                 return { messages: updatedMessages }
               })
             } else {
+              console.log("Adding new message")
               // Add as new message
               get().addMessage({
                 ...eventData,

@@ -61,7 +61,10 @@ export default function QueryBar() {
         setTimeout(() => {
           if (textareaRef.current) {
             textareaRef.current.focus()
-            textareaRef.current.setSelectionRange(newText.length, newText.length)
+            textareaRef.current.setSelectionRange(
+              newText.length,
+              newText.length
+            )
           }
         }, 0)
         return newText
@@ -119,7 +122,7 @@ export default function QueryBar() {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isTranscribing
-                    ? "Listening..."
+                    ? `Listening...`
                     : isProcessingAudio
                     ? "Converting speech to text..."
                     : awaitingUserResponse
@@ -127,9 +130,13 @@ export default function QueryBar() {
                     : "What can I do for you?"
                 }
                 className={`w-full min-h-[24px] max-h-[150px] resize-none border-none outline-none bg-transparent text-left overflow-y-auto ${
-                  isTranscribing || isProcessingAudio ? "text-muted-foreground" : ""
+                  isTranscribing || isProcessingAudio
+                    ? "text-muted-foreground"
+                    : ""
                 }`}
-                disabled={awaitingUserResponse || isProcessingAudio || isTranscribing}
+                disabled={
+                  awaitingUserResponse || isProcessingAudio || isTranscribing
+                }
                 spellCheck="false"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -144,38 +151,8 @@ export default function QueryBar() {
 
             {/* Bottom row with icons */}
             <div className="absolute bottom-2 left-2 right-2 flex items-center">
-              {/* Left side - Model dropdown */}
-              <div className="flex gap-1">
-                {/* TODO: Add this back when we have multiple models to select from */}
-                {/* <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-3 text-xs rounded-full border border-border/50 bg-muted/30"
-                    >
-                      {models.find((m) => m.id === selectedModel)?.name ||
-                        selectedModel}
-                      <ChevronUp className="h-3 w-3 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" sideOffset={8}>
-                    {models.map((model) => (
-                      <DropdownMenuItem
-                        key={model.id}
-                        onClick={() => setSelectedModel(model.id)}
-                        className="text-sm"
-                      >
-                        {model.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu> */}
-              </div>
-
               {/* Spacer to push buttons to the right */}
-              <div className="flex-1"></div>
+              <div className="flex-1" />
 
               {/* Right side icons */}
               <div className="flex gap-1">
@@ -188,10 +165,10 @@ export default function QueryBar() {
                   disabled={awaitingUserResponse || isProcessingAudio}
                   title={
                     isTranscribing
-                      ? "Stop recording"
+                      ? "Stop (Alt+\\)"
                       : isProcessingAudio
                       ? "Processing"
-                      : "Start recording"
+                      : "Dictate (Alt+\\)"
                   }
                 >
                   {isTranscribing ? (
@@ -215,7 +192,7 @@ export default function QueryBar() {
                     awaitingUserResponse ||
                     isSubmitting
                   }
-                  title="Send message"
+                  title="Submit (Enter)"
                 >
                   <Send className="h-3.5 w-3.5" />
                 </Button>
