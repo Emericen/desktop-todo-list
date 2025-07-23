@@ -133,18 +133,12 @@ export function TerminalMessage({ message }) {
   return (
     <div className="w-full group">
       <div className="px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg">
+        <div className="flex items-center gap-2 mb-3 text-green-400">
+          $ {message.content}
+        </div>
         {!isExecuted ? (
           // Before execution - show command with buttons
           <>
-            <div className="flex items-center gap-2 mb-3">
-              <Terminal className="h-4 w-4 text-yellow-400" />
-              <span className="text-sm font-medium text-yellow-400">
-                Execute this command?
-              </span>
-            </div>
-            <div className="bg-gray-800 text-green-400 p-2 rounded mb-3 font-mono text-sm">
-              {message.content}
-            </div>
             <div className="flex justify-end gap-2">
               <Button
                 size="sm"
@@ -167,19 +161,7 @@ export function TerminalMessage({ message }) {
             </div>
           </>
         ) : (
-          // After execution - show command + results
           <>
-            <div className="flex items-center gap-2 mb-2">
-              <Terminal className="h-4 w-4 text-green-400" />
-              <span className="text-sm font-medium text-green-400">
-                Terminal
-              </span>
-            </div>
-            {/* Command */}
-            <div className="text-gray-400 font-mono text-sm mb-2">
-              $ {message.content}
-            </div>
-            {/* Results */}
             {result && (
               <>
                 {result.output && (

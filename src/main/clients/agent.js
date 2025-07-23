@@ -80,6 +80,36 @@ const tools = [
   },
   {
     type: "custom",
+    name: "terminal_interrupt",
+    description:
+      "Send an interrupt signal (Ctrl+C) to the running command in the terminal to stop it.",
+    input_schema: { type: "object", properties: {} }
+  },
+  {
+    type: "custom",
+    name: "terminal_next",
+    description:
+      "Get any new output from the terminal that has been produced since the last check, useful for monitoring long-running commands.",
+    input_schema: { type: "object", properties: {} }
+  },
+  {
+    type: "custom",
+    name: "terminal_send_interactive_input",
+    description:
+      "Send interactive input to the terminal for responding to prompts, confirmations, or navigation (e.g., arrow keys, text responses).",
+    input_schema: {
+      type: "object",
+      properties: {
+        input: {
+          type: "string",
+          description:
+            "Text input or ANSI escape codes. For arrow keys use: \\x1B[A (up), \\x1B[B (down), \\x1B[C (right), \\x1B[D (left). For Enter use \\r."
+        }
+      }
+    }
+  },
+  {
+    type: "custom",
     name: "left_click",
     description:
       "Perform a mouse cursor left click on the screen at the given pixel coordinates.",
@@ -271,6 +301,9 @@ export default class Agent {
 
     // For handling confirmation responses
     this.pendingConfirmation = null
+
+    // Platform configuration for auth
+    this.platformUrl = process.env.PLATFORM_URL || "http://localhost:3000"
   }
 
   async query(query, pushEvent) {
@@ -278,6 +311,7 @@ export default class Agent {
     if (isTestQuery) {
       return { success: true }
     }
+
     this.messages = [{ role: "user", content: query }]
 
     let hasNextTurn = true // Start with true to enter the loop
@@ -321,15 +355,22 @@ export default class Agent {
               })
 
               if (confirmed) {
-                // Execute the command and push the result
-                const execResult = await this.terminal.execute(
-                  content.input.command
-                )
+                // Clear any unread output before running new command
+                this.terminal.clearOutput()
+
+                // Execute the command (metadata only)
+                const meta = await this.terminal.execute(content.input.command)
+
+                // Retrieve the actual text produced by the command
+                const output = this.terminal.getOutput()
+                const execResult = { ...meta, output }
+
                 pushEvent({
                   type: "bash",
                   content: content.input.command,
                   result: execResult
                 })
+
                 this.messages.push({
                   role: "user",
                   content: [
@@ -340,6 +381,7 @@ export default class Agent {
                     }
                   ]
                 })
+
                 console.log(`[${step}] [${toolStep}] Bash command executed`)
               } else {
                 // User cancelled - just break out of query
@@ -347,6 +389,81 @@ export default class Agent {
                 console.log(`[${step}] [${toolStep}] Bash command cancelled`)
                 return { success: true }
               }
+              break
+            }
+            case "terminal_interrupt": {
+              console.log(
+                `[${step}] [${toolStep}] Terminal interrupt tool used`
+              )
+              pushEvent({ type: "bash", content: "ctrl+c" })
+              const confirmed = await new Promise((resolve) => {
+                this.pendingConfirmation = resolve
+              })
+              if (confirmed) {
+                await this.terminal.interrupt()
+                // record tool result
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Sent Ctrl+C"
+                    }
+                  ]
+                })
+              }
+              break
+            }
+            case "terminal_next": {
+              console.log(`[${step}] [${toolStep}] Terminal next tool used`)
+              const output = this.terminal.getOutput()
+              if (output.trim()) {
+                pushEvent({
+                  type: "text",
+                  content: `\u0060\u0060\u0060bash\n${output.trimEnd()}\n\u0060\u0060\u0060`
+                })
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: output.substring(0, 1000) // limit size
+                    }
+                  ]
+                })
+              } else {
+                pushEvent({ type: "text", content: "(no new output)" })
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "No new output"
+                    }
+                  ]
+                })
+              }
+              break
+            }
+            case "terminal_send_interactive_input": {
+              console.log(
+                `[${step}] [${toolStep}] Terminal send interactive input tool used`
+              )
+              const input = content.input.input
+              await this.terminal.sendInteractiveInput(input)
+              this.messages.push({
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: content.id,
+                    content: `Sent input: ${input}`
+                  }
+                ]
+              })
               break
             }
             case "screenshot": {
@@ -423,7 +540,9 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(`[${step}] [${toolStep}] Left click tool result pushed`)
+                console.log(
+                  `[${step}] [${toolStep}] Left click tool result pushed`
+                )
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
@@ -476,11 +595,15 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(`[${step}] [${toolStep}] Right click tool result pushed`)
+                console.log(
+                  `[${step}] [${toolStep}] Right click tool result pushed`
+                )
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
-                console.log(`[${step}] [${toolStep}] Right click tool cancelled`)
+                console.log(
+                  `[${step}] [${toolStep}] Right click tool cancelled`
+                )
                 return { success: true }
               }
               break
@@ -529,11 +652,15 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(`[${step}] [${toolStep}] Double click tool result pushed`)
+                console.log(
+                  `[${step}] [${toolStep}] Double click tool result pushed`
+                )
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
-                console.log(`[${step}] [${toolStep}] Double click tool cancelled`)
+                console.log(
+                  `[${step}] [${toolStep}] Double click tool cancelled`
+                )
                 return { success: true }
               }
               break
@@ -753,11 +880,15 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(`[${step}] [${toolStep}] Keyboard hotkey tool result pushed`)
+                console.log(
+                  `[${step}] [${toolStep}] Keyboard hotkey tool result pushed`
+                )
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Hotkey cancelled." })
-                console.log(`[${step}] [${toolStep}] Keyboard hotkey tool cancelled`)
+                console.log(
+                  `[${step}] [${toolStep}] Keyboard hotkey tool cancelled`
+                )
                 return { success: true }
               }
               break
@@ -766,24 +897,21 @@ export default class Agent {
         }
         toolStep++
       }
-      
+
       // Continue to next turn if we had any tool use in this response
       if (hadToolUse) {
         hasNextTurn = true
       }
-      
+
       step++
     }
-    
+
     return { success: true }
   }
 
   async handleTestQuery(query, pushEvent) {
     // process hardcoded test queries
     switch (query) {
-      case "/messages":
-        return true
-
       case "/screenshot":
         const screenshot = await this.ioClient.takeScreenshot()
         pushEvent({

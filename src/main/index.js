@@ -11,6 +11,7 @@ import { createSystemTray, destroyTray } from "./windows/tray.js"
 import OpenAIClient from "./clients/openai.js"
 import { registerShortcuts, unregisterAllShortcuts } from "./shortcuts.js"
 import Agent from "./clients/agent.js"
+import AuthClient from "./clients/auth.js"
 
 // Load environment variables
 dotenv.config()
@@ -33,11 +34,10 @@ app.whenReady().then(() => {
     }
   })
 
-  // Initialize clients
-  const openaiClient = new OpenAIClient()
-
-  // Initialize Agent (creates its own IOClient internally)
+  // Initialize Agent and Auth
   const agent = new Agent()
+  const authClient = new AuthClient()
+  const openaiClient = new OpenAIClient()
 
   // Default open or close DevTools by F12 in development
   app.on("browser-window-created", (_, window) => {
@@ -50,10 +50,29 @@ app.whenReady().then(() => {
   // ========= IPC HANDLERS =========
   ipcMain.handle("query", async (event, payload) => {
     const pushEvent = (eventData) => {
-      console.log("pushEvent:", eventData.type, eventData.content?.substring(0, 100))
+      console.log(
+        "pushEvent:",
+        eventData.type,
+        eventData.content?.substring(0, 100)
+      )
       // Ensure chat window is visible for every event so the user can see agent progress
       showChatWindow()
       event.sender.send("response-event", eventData)
+    }
+
+    if (payload.query === "/auth-status") {
+      if (authClient.isAuthenticated()) {
+        pushEvent({ type: "text", content: "You are authenticated!" })
+      } else {
+        pushEvent({ type: "text", content: "You are not authenticated!" })
+      }
+      return { success: true }
+    }
+
+    if (!authClient.isAuthenticated()) {
+      await authClient.handle(payload.query, pushEvent)
+      event.sender.send("focus-query-input")
+      return { success: true }
     }
 
     const res = await agent.query(payload.query, pushEvent)

@@ -22,6 +22,7 @@ export default class Terminal {
     )
 
     this.output = ""
+    this.readOffset = 0 // marker for incremental reads
     this.isReady = false
 
     // Handle terminal output
@@ -67,8 +68,6 @@ export default class Terminal {
           clearInterval(checkInterval)
           resolve({
             success: true,
-            command,
-            output: newOutput,
             executionTime: Date.now() - startTime,
             timedOut
           })
@@ -92,11 +91,14 @@ export default class Terminal {
   }
 
   getOutput() {
-    return this.output
+    const delta = this.output.slice(this.readOffset)
+    this.readOffset = this.output.length
+    return delta
   }
 
   clearOutput() {
     this.output = ""
+    this.readOffset = 0
   }
 
   resize(cols, rows) {
