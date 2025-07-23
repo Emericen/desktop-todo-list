@@ -92,7 +92,14 @@ export default function QueryBar() {
     try {
       // Handle local clear command
       if (messageText === "/clear") {
+        // Clear frontend state
         clearMessages()
+        // Ask backend to reset its conversation context
+        if (window.api?.clearAgentMessages) {
+          window.api.clearAgentMessages().catch((err) =>
+            console.error("Failed to clear backend messages", err)
+          )
+        }
         setIsSubmitting(false)
         return
       }
@@ -132,7 +139,7 @@ export default function QueryBar() {
                     ? "Converting speech to text..."
                     : awaitingUserResponse
                     ? "Press Enter to confirm or Esc to cancel"
-                    : "What can I do for you?"
+                    : "What can I do for you? type `/help` for help"
                 }
                 className={`w-full min-h-[24px] max-h-[150px] resize-none border-none outline-none bg-transparent text-left overflow-y-auto ${
                   isTranscribing || isProcessingAudio

@@ -31,11 +31,6 @@ const useStore = create((set, get) => ({
   // Replace the last image message with a new one, or add if no image exists
   replaceLastImageMessage: (message) =>
     set((state) => {
-      // const textNote = {
-      //   type: "text",
-      //   content: "What your assistant sees",
-      //   timestamp: new Date(),
-      // };
       if (
         state.messages.length !== 0 &&
         state.messages[state.messages.length - 1].type === "image"

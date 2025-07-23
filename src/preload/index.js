@@ -11,14 +11,15 @@ const api = {
       const handleAgentEvent = (_e, eventData) => onAgentEvent(eventData)
       ipcRenderer.on("response-event", handleAgentEvent)
 
-      // Send the query
-      return ipcRenderer.invoke("query", payload).then((result) => {
-        // Wait a bit before cleanup to ensure all events are processed
+      // Send the query and always clean up the listener, even on errors
+      const promise = ipcRenderer.invoke("query", payload)
+      promise.finally(() => {
+        // Small delay to ensure the last streamed events are handled
         setTimeout(() => {
           ipcRenderer.removeListener("response-event", handleAgentEvent)
         }, 100)
-        return result
       })
+      return promise
     } else {
       // Fallback for non-streaming usage (though we'll always stream)
       return ipcRenderer.invoke("query", payload)
@@ -39,7 +40,10 @@ const api = {
   onFocusQueryInput: (cb) => ipcRenderer.on("focus-query-input", cb),
 
   // Listen to clear messages events
-  onClearMessages: (cb) => ipcRenderer.on("clear-messages", cb)
+  onClearMessages: (cb) => ipcRenderer.on("clear-messages", cb),
+
+  // Request backend to reset stored conversation
+  clearAgentMessages: () => ipcRenderer.invoke("clear-messages")
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -233,7 +233,7 @@ export default class IOClient {
     if (pixels > 0) {
       await mouse.scrollDown(pixels)
     } else {
-      await mouse.scrollUp(pixels)
+      await mouse.scrollUp(Math.abs(pixels))
     }
     showChatWindow()
   }

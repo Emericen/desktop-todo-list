@@ -47,7 +47,16 @@ Example 4 - URL navigation:
 User: "Go to YouTube and find the latest All-In podcast"
 → Use bash 'open https://youtube.com' to navigate, then screenshot to see the page, then GUI to search and interact
 
-Be context-aware and choose the most logical starting point based on what the user is asking for.`
+Be context-aware and choose the most logical starting point based on what the user is asking for.
+
+**IMPORTANT UI LIMITATION:**
+You interact through a chat window that appears for confirmations between each action. When this window appears, it steals focus and closes any open dropdowns, context menus, or temporary UI elements. If you right-click something and see no change in the next screenshot, the dropdown likely appeared but was immediately closed when the confirmation window showed.
+
+To avoid infinite loops:
+- Prefer keyboard shortcuts over context menus (e.g., Ctrl+C instead of right-click → copy)
+- Use bash commands for file operations instead of GUI right-click menus
+- If a click shows no visible change, try an alternative approach rather than repeating the same click
+- Be aware that any temporary UI elements (dropdowns, tooltips, menus) will disappear between actions`
 
 const tools = [
   {
@@ -312,7 +321,7 @@ export default class Agent {
       return { success: true }
     }
 
-    this.messages = [{ role: "user", content: query }]
+    this.messages.push({ role: "user", content: query })
 
     let hasNextTurn = true // Start with true to enter the loop
     let step = 0
@@ -384,9 +393,20 @@ export default class Agent {
 
                 console.log(`[${step}] [${toolStep}] Bash command executed`)
               } else {
-                // User cancelled - just break out of query
+                // User cancelled – send a dummy tool_result so protocol stays consistent
                 pushEvent({ type: "text", content: "Command cancelled." })
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
                 console.log(`[${step}] [${toolStep}] Bash command cancelled`)
+                // Break out of conversation loop when cancelled
                 return { success: true }
               }
               break
@@ -412,6 +432,21 @@ export default class Agent {
                     }
                   ]
                 })
+              } else {
+                // User cancelled – send a dummy tool_result so protocol stays consistent
+                pushEvent({ type: "text", content: "Command cancelled." })
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
+                // Break out of conversation loop when cancelled
+                return { success: true }
               }
               break
             }
@@ -547,6 +582,16 @@ export default class Agent {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
                 console.log(`[${step}] [${toolStep}] Left click tool cancelled`)
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
                 return { success: true }
               }
               break
@@ -604,6 +649,16 @@ export default class Agent {
                 console.log(
                   `[${step}] [${toolStep}] Right click tool cancelled`
                 )
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
                 return { success: true }
               }
               break
@@ -661,6 +716,16 @@ export default class Agent {
                 console.log(
                   `[${step}] [${toolStep}] Double click tool cancelled`
                 )
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
                 return { success: true }
               }
               break
@@ -720,6 +785,16 @@ export default class Agent {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
                 console.log(`[${step}] [${toolStep}] Drag tool cancelled`)
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
                 return { success: true }
               }
               break
@@ -777,6 +852,16 @@ export default class Agent {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
                 console.log(`[${step}] [${toolStep}] Scroll tool cancelled`)
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
                 return { success: true }
               }
               break
@@ -838,6 +923,16 @@ export default class Agent {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
                 console.log(`[${step}] [${toolStep}] Type tool cancelled`)
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
                 return { success: true }
               }
               break
@@ -889,6 +984,16 @@ export default class Agent {
                 console.log(
                   `[${step}] [${toolStep}] Keyboard hotkey tool cancelled`
                 )
+                this.messages.push({
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: content.id,
+                      content: "Cancelled by user."
+                    }
+                  ]
+                })
                 return { success: true }
               }
               break
