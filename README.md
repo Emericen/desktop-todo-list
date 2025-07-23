@@ -43,30 +43,12 @@ npm run build:mac
 npm run build:linux
 ```
 
-## How to Use
-
-1. **Open/Close**: Press `Alt+P` to show/hide the chat window
-2. **Voice Input**: Press `Alt+\` to start/stop voice transcription
-3. **Type or speak** your request and the AI will:
-   - Take screenshots to see your screen
-   - Execute terminal commands (with your approval)
-   - Control mouse and keyboard
-   - Navigate applications and websites
-
 ## Current Limitations
 
 - You can double submit queries while a previous one is still generating
 - Message UI components could be more standardized with consistent shadcn usage
-- All screenshots are resized to 1280x720 pixels regardless of monitor dimensions
-- Ultra-wide monitors (21:9, 32:9) and portrait monitors may experience stretching
-- No zoom functionality for better element identification on large monitors
-
-## Future Work
-
-- Agent planning: Show list of planned actions → user approval → execute in background
-- Enhanced screenshot handling for different monitor aspect ratios
-- Zoom tools for better UI element detection
-- More sophisticated action chaining and workflows
+- Does not work well on large monitors. 
+- 
 
 ## Architecture
 
