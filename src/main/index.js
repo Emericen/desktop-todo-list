@@ -1,6 +1,5 @@
 import { app, BrowserWindow } from "electron"
 import { electronApp, optimizer } from "@electron-toolkit/utils"
-import dotenv from "dotenv"
 import path from "path"
 import {
   createChatWindow,
@@ -18,13 +17,7 @@ import QueryOrchestrator from "./services/queryOrchestrator.js"
 import IPCHandlers from "./services/ipcHandlers.js"
 import UserSettings from "./services/userSettings.js"
 
-// Load environment variables
-// In development, load from current directory
-// In production, load from app resources
-const envPath = app.isPackaged 
-  ? path.join(process.resourcesPath, '.env')
-  : '.env'
-dotenv.config({ path: envPath })
+// Environment variables are now handled via platform API and config.json
 
 // Hide dock on macOS
 if (process.platform === "darwin") {

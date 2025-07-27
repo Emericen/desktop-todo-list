@@ -1,14 +1,21 @@
-import dotenv from "dotenv"
 import { createClient } from "@supabase/supabase-js"
 import keytar from "keytar"
-
-dotenv.config()
+import fs from "fs"
+import path from "path"
+import { app } from "electron"
 
 export default class AuthClient {
   constructor() {
+    // Load config from config.json
+    const configPath = app.isPackaged 
+      ? path.join(process.resourcesPath, 'config.json')
+      : path.join(process.cwd(), 'config.json')
+    
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+    
     this.supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      config.supabase.url,
+      config.supabase.anonKey
     )
 
     // Keytar service label
