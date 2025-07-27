@@ -1,302 +1,46 @@
 import { create } from "zustand"
+import { subscribeWithSelector } from 'zustand/middleware'
+import { apiService } from "../services/apiService.js"
+import { createMessagesSlice } from "./slices/messagesSlice.js"
+import { createTranscriptionSlice } from "./slices/transcriptionSlice.js"
+import { createSettingsSlice } from "./slices/settingsSlice.js"
+import { createUISlice } from "./slices/uiSlice.js"
+// Initialize error service (this sets up global error handlers)
+import "../services/errorService.js"
 
 // Global UI store (frontend-only)
 // Holds non-persistent app state such as theme, in-app shortcuts, chat messages, etc.
 // Settings are hydrated from the backend on startup and kept in sync via the `settings-updated` channel.
 
-const useStore = create((set, get) => ({
-  // deprecated settings removed
-  messages: [],
-  isTranscribing: false,
-  awaitingUserResponse: false,
-  selectedModel: "claude-4-sonnet",
-  models: [
-    { id: "claude-4-sonnet", name: "Claude 4 Sonnet" }
-    // { id: "O3", name: "O3" },
-  ],
-
-  // New flag to indicate audio is being processed by API
-  isProcessingAudio: false,
-
-  addMessage: (message) =>
-    set((state) => ({
-      messages: [
-        ...state.messages,
-        message.type === "confirmation"
-          ? { ...message, answered: null }
-          : message
-      ]
-    })),
-
-  // Replace the last image message with a new one, or add if no image exists
-  replaceLastImageMessage: (message) =>
-    set((state) => {
-      if (
-        state.messages.length !== 0 &&
-        state.messages[state.messages.length - 1].type === "image"
-      ) {
-        return {
-          messages: [...state.messages.slice(0, -1), message]
-        }
-      }
-      return { messages: [...state.messages, message] }
-    }),
-
-  clearMessages: () => set({ messages: [] }),
-
-  setIsTranscribing: (val) => set({ isTranscribing: val }),
-
-  setAwaitingUserResponse: (val) => set({ awaitingUserResponse: val }),
-
-  selectChoice: (index, choice) =>
-    set((state) => {
-      const updatedMessages = [...state.messages]
-      if (
-        updatedMessages[index] &&
-        updatedMessages[index].type === "confirmation"
-      ) {
-        updatedMessages[index] = {
-          ...updatedMessages[index],
-          answered: choice
-        }
-      }
-      return { messages: updatedMessages }
-    }),
-
-  submitQuery: async (rawQuery) => {
-    const query = rawQuery.trim()
-    if (!query) return
-
-    // Add user message to state first
-    const userMessage = {
-      type: "user",
-      content: query,
-      timestamp: new Date()
-    }
-    get().addMessage(userMessage)
-
-    // Add loading message that we'll replace with actual content
-    const loadingMessage = {
-      type: "loading",
-      content: "",
-      timestamp: new Date()
-    }
-    get().addMessage(loadingMessage)
-
-    try {
-      // Get the index of the loading message we just added
-      let messageIndex = get().messages.length - 1
-      let isFirstEvent = true
-
-      // Send streaming query with event handler
-      await window.api.sendQuery(
-        {
-          query: query, // Just send the query text
-          selectedModel: get().selectedModel
-        },
-        (eventData) => {
-          // Handle structured event data
-          if (isFirstEvent) {
-            console.log("First event - replacing loading message")
-            // Replace loading message with the first response
-            set((state) => {
-              const updatedMessages = [...state.messages]
-              updatedMessages[messageIndex] = {
-                ...eventData,
-                timestamp: new Date()
-              }
-              return { messages: updatedMessages }
-            })
-            isFirstEvent = false
-          } else {
-            // For subsequent responses, check if we should append to existing or create new
-            if (
-              eventData.type === "bash" &&
-              eventData.result &&
-              get().messages.some(
-                (m) =>
-                  m.type === "bash" &&
-                  m.content === eventData.content &&
-                  !m.result
-              )
-            ) {
-              set((state) => {
-                const updatedMessages = [...state.messages]
-                const targetIndex = [...updatedMessages]
-                  .reverse()
-                  .findIndex(
-                    (m) =>
-                      m.type === "bash" &&
-                      m.content === eventData.content &&
-                      !m.result
-                  )
-                if (targetIndex !== -1) {
-                  // reverse index offset
-                  const realIndex = updatedMessages.length - 1 - targetIndex
-                  updatedMessages[realIndex] = {
-                    ...updatedMessages[realIndex],
-                    result: eventData.result
-                  }
-                  return { messages: updatedMessages }
-                }
-                // Fallback push new message
-                return {
-                  messages: [
-                    ...updatedMessages,
-                    { ...eventData, timestamp: new Date() }
-                  ]
-                }
-              })
-            } else if (
-              eventData.type === "text" &&
-              get().messages[messageIndex]?.type === "text"
-            ) {
-              // Append text to existing text message
-              set((state) => {
-                const updatedMessages = [...state.messages]
-                updatedMessages[messageIndex] = {
-                  ...updatedMessages[messageIndex],
-                  content:
-                    updatedMessages[messageIndex].content + eventData.content
-                }
-                return { messages: updatedMessages }
-              })
-            } else {
-              console.log("Adding new message")
-              // Add as new message
-              get().addMessage({
-                ...eventData,
-                timestamp: new Date()
-              })
-              messageIndex = get().messages.length - 1
-            }
-          }
-        }
-      )
-    } catch (error) {
-      console.error("Streaming error:", error)
-
-      // Update the loading message with error
-      set((state) => {
-        const updatedMessages = [...state.messages]
-        const messageIndex = updatedMessages.length - 1
-        updatedMessages[messageIndex] = {
-          type: "error",
-          content: `Error: ${error}`,
-          timestamp: new Date()
-        }
-        return { messages: updatedMessages }
-      })
-    }
-  },
-
-  setSelectedModel: (model) => set({ selectedModel: model }),
-
-  // Transcription state
-  mediaRecorder: null,
-  audioChunks: [],
-  transcriptionCallback: null,
-
-  // Transcription actions
-  startTranscription: async () => {
-    set({ isTranscribing: true, isProcessingAudio: false })
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream)
-
-      set({ mediaRecorder, audioChunks: [] })
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          set((state) => ({ audioChunks: [...state.audioChunks, event.data] }))
-        }
-      }
-
-      mediaRecorder.onstop = async () => {
-        const { audioChunks } = get()
-        const audioBlob = new Blob(audioChunks, { type: "audio/webm" })
-
-        // Convert to base64 using browser FileReader API
-        const base64Audio = await new Promise((resolve) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result.split(",")[1])
-          reader.readAsDataURL(audioBlob)
-        })
-
-        // Send to main process for transcription
-        try {
-          // flag while waiting response
-          set({ isProcessingAudio: true })
-          const result = await window.api.transcribeAudio({
-            audio: base64Audio,
-            filename: "recording.webm"
-          })
-
-          if (result.success) {
-            // Call the callback if provided
-            const { transcriptionCallback } = get()
-            if (transcriptionCallback) {
-              transcriptionCallback(result.text.trim())
-            }
-          } else {
-            console.error("Transcription failed:", result.error)
-          }
-        } catch (error) {
-          console.error("Transcription error:", error)
-        }
-
-        // Clean up & reset flags
-        stream.getTracks().forEach((track) => track.stop())
-        set({
-          isTranscribing: false,
-          isProcessingAudio: false,
-          mediaRecorder: null,
-          audioChunks: []
-        })
-      }
-
-      mediaRecorder.start()
-    } catch (error) {
-      console.error("Error accessing microphone:", error)
-      set({ isTranscribing: false })
-    }
-  },
-
-  stopTranscription: () => {
-    const { mediaRecorder } = get()
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      // Immediately mark as stopped recording and processing started
-      set({ isTranscribing: false, isProcessingAudio: true })
-      mediaRecorder.stop()
-    }
-  },
-
-  toggleTranscription: async () => {
-    const { isTranscribing } = get()
-    if (isTranscribing) {
-      get().stopTranscription()
-    } else {
-      await get().startTranscription()
-    }
-  },
-
-  setTranscriptionCallback: (callback) => {
-    set({ transcriptionCallback: callback })
-  },
-
-  // Added setter for processing flag
-  setIsProcessingAudio: (val) => set({ isProcessingAudio: val })
-}))
+const useStore = create(
+  subscribeWithSelector((set, get) => ({
+    // Compose all slices
+    ...createMessagesSlice(set, get),
+    ...createTranscriptionSlice(set, get),
+    ...createSettingsSlice(set, get),
+    ...createUISlice(set, get)
+  }))
+)
 
 // Attach backend-push listener globally once store is defined
-if (typeof window !== "undefined" && window.api?.onPush) {
-  window.api.onPush((payload) => {
+if (typeof window !== "undefined") {
+  // Set up IPC listeners (this registers the actual IPC handlers)
+  apiService.onPush((payload) => {
     console.log("payload", payload)
     if (payload.type && payload.type === "image") {
       const message = { ...payload }
       useStore.getState().replaceLastImageMessage(message)
     }
+  })
+  
+  // Also register the clear messages IPC listener
+  apiService.onClearMessages(() => {
+    // This will trigger the event bus event that components listen to
+  })
+
+  // Register focus input IPC listener  
+  apiService.onFocusQueryInput(() => {
+    // This will trigger the event bus event that components listen to
   })
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from "react"
 import QueryBar from "@/components/QueryBar"
 import useStore from "@/store/useStore"
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts.js"
 import {
   UserMessage,
   TextMessage,
@@ -13,12 +14,12 @@ import {
 
 export default function ChatWindow() {
   const messages = useStore((s) => s.messages)
-  // theme now follows system
-  const toggleTranscription = useStore((s) => s.toggleTranscription)
-  const clearMessages = useStore((s) => s.clearMessages)
   const shortcut = "Alt+P"
 
   const bottomRef = useRef(null)
+  
+  // Use custom hooks
+  useKeyboardShortcuts()
 
   // no settings loading
 
@@ -33,27 +34,6 @@ export default function ChatWindow() {
     return () => mql.removeEventListener("change", apply)
   }, [])
 
-  // Handle Alt+\ for transcription toggle
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.altKey && e.code === "Backslash") {
-        e.preventDefault()
-        toggleTranscription()
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [toggleTranscription])
-
-  // Handle clear messages event from main process
-  useEffect(() => {
-    if (window.api?.onClearMessages) {
-      window.api.onClearMessages(() => {
-        clearMessages()
-      })
-    }
-  }, [clearMessages])
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })

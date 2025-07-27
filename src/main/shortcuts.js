@@ -24,6 +24,24 @@ export function registerShortcuts(shortcutMap = {}) {
   })
 }
 
+/**
+ * Register shortcuts from user settings
+ * @param {UserSettings} userSettings - The user settings instance
+ * @param {Record<string, Function>} handlerMap - Map of setting keys to handler functions
+ */
+export function registerFromSettings(userSettings, handlerMap = {}) {
+  const shortcutMap = {}
+  
+  Object.entries(handlerMap).forEach(([settingKey, handler]) => {
+    const accelerator = userSettings.get(`shortcuts.${settingKey}`)
+    if (accelerator) {
+      shortcutMap[accelerator] = handler
+    }
+  })
+  
+  registerShortcuts(shortcutMap)
+}
+
 export function unregisterAllShortcuts() {
   globalShortcut.unregisterAll()
   registered.clear()
