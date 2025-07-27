@@ -1,8 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk"
-import dotenv from "dotenv"
 import Terminal from "./terminal.js"
 import IOClient from "./io.js"
-dotenv.config()
 
 const system = `You are a desktop assistant created by Lychee to help users be more productive by operating their computer.
 
@@ -299,9 +296,8 @@ export default class Agent {
   constructor() {
     this.ioClient = new IOClient()
 
-    this.anthropicClient = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY
-    })
+    // Use hardcoded backend URL
+    this.platformBaseUrl = "https://www.uiassistant.io" // TODO: Replace with your actual backend URL
 
     this.system = system.trim()
 
@@ -312,7 +308,7 @@ export default class Agent {
     this.pendingConfirmation = null
 
     // Platform configuration for auth
-    this.platformUrl = process.env.PLATFORM_URL || "http://localhost:3000"
+    this.platformUrl = "https://www.uiassistant.io"
   }
 
   async query(query, pushEvent) {
@@ -329,15 +325,28 @@ export default class Agent {
       hasNextTurn = false
 
       console.log(`[${step}] Sending request to Anthropic`)
-      const response = await this.anthropicClient.beta.messages.create({
-        model: "claude-sonnet-4-20250514",
-        tools: tools,
-        system: this.system,
-        messages: this.messages,
-        max_tokens: 2048,
-        temperature: 0,
-        stream: false
+      const httpResponse = await fetch(`${this.platformBaseUrl}/api/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          tools: tools,
+          system: this.system,
+          messages: this.messages,
+          max_tokens: 2048,
+          temperature: 0,
+          stream: false
+        })
       })
+
+      if (!httpResponse.ok) {
+        throw new Error(`Platform API error: ${httpResponse.status}`)
+      }
+
+      // Platform returns the same format as Anthropic API
+      const response = await httpResponse.json()
       console.log(`[${step}] Response received from Anthropic`)
       this.messages.push({ role: "assistant", content: response.content })
 

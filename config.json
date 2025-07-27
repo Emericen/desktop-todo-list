@@ -1,0 +1,9 @@
+{
+  "supabase": {
+    "url": "https://kbqzmwyfhyxfaewpkytz.supabase.co",
+    "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImticXptd3lmaHl4ZmFld3BreXR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3OTcxODEsImV4cCI6MjA2ODM3MzE4MX0.l8AjHRLswuavcAakcdzwHT3XUiXi2fr_hE7d-Xtf13c"
+  },
+  "backend": {
+    "url": "https://www.uiassistant.io"
+  }
+}

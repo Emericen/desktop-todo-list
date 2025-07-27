@@ -1,20 +1,43 @@
 {
-  "name": "electron-shadcn-template",
-  "version": "1.0.0",
-  "description": "An Electron application with React",
+  "name": "lychee-desktop-assistant",
+  "version": "0.0.1",
+  "description": "A desktop assistant that helps you control your computer.",
   "main": "./out/main/index.js",
   "type": "module",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Eddy Liang 梁岳迪",
+  "homepage": "https://www.uiassistant.io/homepage",
   "scripts": {
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
-    "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "npm run build && electron-builder --dir",
+    "publish": "electron-builder -p always",
+    "build": "electron-builder",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.github.emericen.assistant-ui-desktop-release",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Emericen",
+        "repo": "assistant-ui-desktop-release"
+      }
+    ],
+    "afterSign": "./build/notarize.js",
+    "mac": {
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false
+    },
+    "linux": {
+      "category": "Productivity",
+      "target": "AppImage"
+    }
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
@@ -34,8 +57,7 @@
     "anthropic": "^0.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dotenv": "^16.5.0",
-    "electron-updater": "^6.3.9",
+    "electron-updater": "^6.6.2",
     "expect.js": "^0.3.1",
     "keytar": "^7.9.0",
     "lucide-react": "^0.522.0",
@@ -53,6 +75,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^35.1.5",
     "electron-builder": "^25.1.8",
+    "electron-notarize": "^1.1.1",
     "electron-rebuild": "^3.2.9",
     "electron-vite": "^3.1.0",
     "react": "^19.1.0",

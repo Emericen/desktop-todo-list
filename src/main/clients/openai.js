@@ -1,17 +1,10 @@
-import OpenAI from "openai"
-import dotenv from "dotenv"
+import { app } from "electron"
 import fs from "fs"
 import path from "path"
-import { app } from "electron"
-
-// Load environment variables
-dotenv.config()
 
 export default class OpenAIClient {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    })
+    this.platformBaseUrl = "https://www.uiassistant.io"
   }
 
   async transcribeAudio(audioBuffer, filename = "audio.webm") {
@@ -23,12 +16,26 @@ export default class OpenAIClient {
       // Write buffer to temp file
       fs.writeFileSync(tempFilePath, audioBuffer)
 
-      // Create readable stream for OpenAI API
-      const transcription = await this.openai.audio.transcriptions.create({
-        file: fs.createReadStream(tempFilePath),
-        model: "whisper-1",
-        response_format: "text"
+      // Create form data for platform API
+      const formData = new FormData()
+      const fileBlob = new Blob([fs.readFileSync(tempFilePath)], {
+        type: filename.includes(".webm") ? "audio/webm" : "audio/wav"
       })
+      formData.append("file", fileBlob, filename)
+      formData.append("model", "whisper-1")
+      formData.append("response_format", "text")
+
+      // Call platform API
+      const response = await fetch(`${this.platformBaseUrl}/api/transcribe`, {
+        method: "POST",
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error(`Platform API error: ${response.status}`)
+      }
+
+      const transcription = await response.text()
 
       // Clean up temp file
       fs.unlinkSync(tempFilePath)

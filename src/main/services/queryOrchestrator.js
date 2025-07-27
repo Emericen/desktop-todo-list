@@ -9,6 +9,8 @@ class QueryOrchestrator {
     this.authClient = null
     this.aiAgent = null
     this.slashCommandHandler = null
+    this.updateClient = null
+    this.awaitingUpdateResponse = false
   }
 
   /**
@@ -33,6 +35,14 @@ class QueryOrchestrator {
    */
   setSlashCommandHandler(slashCommandHandler) {
     this.slashCommandHandler = slashCommandHandler
+  }
+
+  /**
+   * Set the update client dependency
+   * @param {UpdateClient} updateClient - The update client
+   */
+  setUpdateClient(updateClient) {
+    this.updateClient = updateClient
   }
 
   /**
@@ -65,6 +75,16 @@ class QueryOrchestrator {
       if (this.slashCommandHandler.isSlashCommand(payload.query)) {
         const result = await this.slashCommandHandler.handleCommand(payload.query, enhancedPushEvent)
         return result
+      }
+
+      // Handle update response if awaiting one
+      if (this.awaitingUpdateResponse && this.updateClient) {
+        const handled = await this.updateClient.handleUpdateResponse(payload.query, enhancedPushEvent)
+        if (handled) {
+          this.awaitingUpdateResponse = false
+          event.sender.send("focus-query-input")
+          return { success: true }
+        }
       }
 
       // Handle authentication flow

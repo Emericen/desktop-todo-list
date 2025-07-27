@@ -1,14 +1,12 @@
-import dotenv from "dotenv"
 import { createClient } from "@supabase/supabase-js"
 import keytar from "keytar"
 
-dotenv.config()
-
 export default class AuthClient {
   constructor() {
+    // Use hardcoded Supabase credentials
     this.supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      "https://kbqzmwyfhyxfaewpkytz.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImticXptd3lmaHl4ZmFld3BreXR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3OTcxODEsImV4cCI6MjA2ODM3MzE4MX0.l8AjHRLswuavcAakcdzwHT3XUiXi2fr_hE7d-Xtf13c"
     )
 
     // Keytar service label
@@ -29,7 +27,10 @@ export default class AuthClient {
    */
   async loadStoredSession() {
     try {
-      const storedJson = await keytar.getPassword(this.KEYTAR_SERVICE, "session")
+      const storedJson = await keytar.getPassword(
+        this.KEYTAR_SERVICE,
+        "session"
+      )
       if (storedJson) {
         const parsed = JSON.parse(storedJson)
         if (parsed.session && parsed.user) {

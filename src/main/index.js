@@ -1,7 +1,6 @@
 import { app, BrowserWindow } from "electron"
 import { electronApp, optimizer } from "@electron-toolkit/utils"
-import dotenv from "dotenv"
-
+import path from "path"
 import {
   createChatWindow,
   showChatWindow,
@@ -12,13 +11,13 @@ import OpenAIClient from "./clients/openai.js"
 import { registerFromSettings, unregisterAllShortcuts } from "./shortcuts.js"
 import Agent from "./clients/agent.js"
 import AuthClient from "./clients/auth.js"
+import UpdateClient from "./clients/update.js"
 import SlashCommandHandler from "./services/slashCommandHandler.js"
 import QueryOrchestrator from "./services/queryOrchestrator.js"
 import IPCHandlers from "./services/ipcHandlers.js"
 import UserSettings from "./services/userSettings.js"
 
-// Load environment variables
-dotenv.config()
+// Environment variables are now handled via platform API and config.json
 
 // Hide dock on macOS
 if (process.platform === "darwin") {
@@ -43,6 +42,7 @@ app.whenReady().then(async () => {
   const authClient = new AuthClient()
   const aiAgent = new Agent() // Anthropic Claude integration
   const openaiClient = new OpenAIClient() // Whisper transcription
+  const updateClient = new UpdateClient() // Auto-updater with user consent
   await authClient.loadStoredSession()
 
   // Initialize business logic layer
@@ -59,6 +59,12 @@ app.whenReady().then(async () => {
   queryOrchestrator.setAuthClient(authClient)
   queryOrchestrator.setAIAgent(aiAgent)
   queryOrchestrator.setSlashCommandHandler(slashCommandHandler)
+  queryOrchestrator.setUpdateClient(updateClient)
+  
+  // Set callback for update responses
+  updateClient.setAwaitingResponseCallback((waiting) => {
+    queryOrchestrator.awaitingUpdateResponse = waiting
+  })
 
   ipcHandlers.setQueryOrchestrator(queryOrchestrator)
   ipcHandlers.setOpenAIClient(openaiClient)
@@ -86,6 +92,10 @@ app.whenReady().then(async () => {
     },
     onQuit: () => app.quit()
   })
+
+  // ========= AUTO UPDATER =========
+  // Check for updates on startup
+  updateClient.checkForUpdates()
 
   app.on("will-quit", () => {
     unregisterAllShortcuts()
