@@ -15,7 +15,7 @@ const whiteIcon = nativeImage.createFromBuffer(whiteBuf, {
   height: WHITE_ICON_SIZE
 })
 
-export function createChatWindow() {
+export function createChatWindow(userSettings = null) {
   if (chatWindow) {
     showChatWindow()
     return chatWindow
@@ -25,8 +25,9 @@ export function createChatWindow() {
   const { width: screenWidth, height: screenHeight } =
     screen.getPrimaryDisplay().workAreaSize
 
-  const windowWidth = 540
-  const windowHeight = 720
+  // Use settings or fallback to defaults
+  const windowWidth = userSettings?.get('window.width') || 540
+  const windowHeight = userSettings?.get('window.height') || 720
 
   // Position near system tray based on platform
   let x, y
@@ -47,7 +48,7 @@ export function createChatWindow() {
     x: x,
     y: y,
     show: false,
-    resizable: false,
+    resizable: userSettings?.get('window.resizable') ?? false,
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? { icon: whiteIcon } : {}),
     webPreferences: {
@@ -55,10 +56,13 @@ export function createChatWindow() {
       sandbox: false
     },
     frame: false,
-    skipTaskbar: true // Don't show in taskbar
+    skipTaskbar: userSettings?.get('window.skipTaskbar') ?? true
   })
 
-  chatWindow.setAlwaysOnTop(true, "screen-saver")
+  // Set always on top based on settings
+  if (userSettings?.get('window.alwaysOnTop') ?? true) {
+    chatWindow.setAlwaysOnTop(true, "screen-saver")
+  }
   chatWindow.setVisibleOnAllWorkspaces(true)
   chatWindow.setContentProtection(false) // Allow normal screen sharing/screenshots
 
@@ -67,12 +71,15 @@ export function createChatWindow() {
   })
 
   // Auto-hide chat when it loses focus (user clicked elsewhere)
-  chatWindow.on("blur", () => {
-    // Only hide if window is currently visible
-    if (chatWindow?.isVisible()) {
-      hideChatWindow()
-    }
-  })
+  // Only add blur handler if autoHide is enabled in settings
+  if (userSettings?.get('window.autoHide') ?? true) {
+    chatWindow.on("blur", () => {
+      // Only hide if window is currently visible
+      if (chatWindow?.isVisible()) {
+        hideChatWindow()
+      }
+    })
+  }
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.

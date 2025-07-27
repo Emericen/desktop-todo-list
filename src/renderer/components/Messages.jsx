@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Check, X, Terminal, CornerDownLeft, Delete } from "lucide-react"
-import useStore from "@/store/useStore"
+import { useConfirmation, useTerminalConfirmation } from "../hooks/useConfirmation.js"
 import ReactMarkdown from "react-markdown"
 
 export function UserMessage({ message }) {
@@ -71,62 +71,14 @@ export function TextMessage({ message }) {
 }
 
 export function TerminalMessage({ message }) {
-  const [isExecuted, setIsExecuted] = useState(message.executed || false)
-  const [result, setResult] = useState(message.result || null)
-  const { setAwaitingUserResponse } = useStore()
+  const { isExecuted, result, handleConfirm, handleCancel } = useTerminalConfirmation(message)
 
-  const handleConfirm = async () => {
-    setIsExecuted(true)
-    setAwaitingUserResponse(false)
-    // Send confirmation to backend
-    await window.api.handleConfirmation(true)
-  }
+  const [displayResult, setDisplayResult] = useState(result)
 
-  const handleCancel = async () => {
-    setIsExecuted(true)
-    setResult({ success: false, error: "Command cancelled", executionTime: 0 })
-    setAwaitingUserResponse(false)
-    await window.api.handleConfirmation(false)
-  }
-
-  // Set awaiting response when component mounts and not executed
-  useEffect(() => {
-    if (!isExecuted && !message.executed) {
-      setAwaitingUserResponse(true)
-    }
-
-    // Cleanup: reset awaiting response when component unmounts
-    return () => {
-      if (!isExecuted && !message.executed) {
-        setAwaitingUserResponse(false)
-      }
-    }
-  }, [])
-
-  // Add keyboard event listener only if not executed
-  useEffect(() => {
-    if (isExecuted) return
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        handleConfirm()
-      } else if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault()
-        handleCancel()
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [isExecuted])
-
-  // Update result when message changes
+  // Update display result when message changes
   useEffect(() => {
     if (message.result) {
-      setResult(message.result)
-      setIsExecuted(true)
-      setAwaitingUserResponse(false)
+      setDisplayResult(message.result)
     }
   }, [message.result])
 
@@ -162,35 +114,35 @@ export function TerminalMessage({ message }) {
           </>
         ) : (
           <>
-            {result && (
+            {displayResult && (
               <>
-                {result.output && (
+                {displayResult.output && (
                   <pre className="text-green-400 font-mono text-sm whitespace-pre-wrap bg-gray-800 p-2 rounded mb-2">
-                    {result.output}
+                    {displayResult.output}
                   </pre>
                 )}
-                {result.error && (
+                {displayResult.error && (
                   <pre className="text-red-400 font-mono text-sm whitespace-pre-wrap bg-gray-800 p-2 rounded mb-2">
-                    {result.error}
+                    {displayResult.error}
                   </pre>
                 )}
                 {/* Status indicator */}
                 <div className="flex items-center gap-2 text-xs">
-                  {result.success ? (
+                  {displayResult.success ? (
                     <Check className="h-3 w-3 text-green-500" />
                   ) : (
                     <X className="h-3 w-3 text-red-500" />
                   )}
                   <span
                     className={
-                      result.success ? "text-green-400" : "text-red-400"
+                      displayResult.success ? "text-green-400" : "text-red-400"
                     }
                   >
-                    {result.success ? "Command completed" : "Command failed"}
+                    {displayResult.success ? "Command completed" : "Command failed"}
                   </span>
-                  {result.executionTime && (
+                  {displayResult.executionTime && (
                     <span className="text-gray-500">
-                      ({result.executionTime}ms)
+                      ({displayResult.executionTime}ms)
                     </span>
                   )}
                 </div>
@@ -231,42 +183,7 @@ export function ImageMessage({ message }) {
 }
 
 export function ConfirmationMessage({ message, index }) {
-  const { selectChoice, setAwaitingUserResponse } = useStore()
-
-  const handleApprove = async () => {
-    selectChoice(index, "approved")
-    setAwaitingUserResponse(false)
-    // Send confirmation to backend
-    await window.api.handleConfirmation(true)
-  }
-
-  const handleReject = async () => {
-    selectChoice(index, "rejected")
-    setAwaitingUserResponse(false)
-    // Send confirmation to backend
-    await window.api.handleConfirmation(false)
-  }
-
-  // Set awaiting response when component mounts and not answered
-  useEffect(() => {
-    if (!message.answered) {
-      setAwaitingUserResponse(true)
-    }
-
-    // Cleanup: reset awaiting response when component unmounts
-    return () => {
-      if (!message.answered) {
-        setAwaitingUserResponse(false)
-      }
-    }
-  }, [])
-
-  // Update awaiting response when message is answered
-  useEffect(() => {
-    if (message.answered) {
-      setAwaitingUserResponse(false)
-    }
-  }, [message.answered])
+  const { handleApprove, handleReject } = useConfirmation(message, index)
 
   // Add keyboard event listener
   useEffect(() => {
