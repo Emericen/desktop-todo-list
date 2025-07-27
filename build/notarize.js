@@ -1,7 +1,7 @@
-const { notarize } = require("electron-notarize")
-const path = require("path")
+import { notarize } from "electron-notarize"
+import path from "path"
 
-exports.default = async function notarizing(context) {
+export default async function notarizing(context) {
   if (
     context.electronPlatformName !== "darwin" ||
     process.env.CSC_IDENTITY_AUTO_DISCOVERY === "false"

@@ -1,8 +1,5 @@
 import Terminal from "./terminal.js"
 import IOClient from "./io.js"
-import fs from "fs"
-import path from "path"
-import { app } from "electron"
 
 const system = `You are a desktop assistant created by Lychee to help users be more productive by operating their computer.
 
@@ -299,15 +296,8 @@ export default class Agent {
   constructor() {
     this.ioClient = new IOClient()
 
-    // Load config from config.json
-    const configPath = app.isPackaged 
-      ? path.join(process.resourcesPath, 'config.json')
-      : path.join(process.cwd(), 'config.json')
-    
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
-    
-    // Use platform API instead of direct Anthropic client
-    this.platformBaseUrl = config.backend.url
+    // Use hardcoded backend URL
+    this.platformBaseUrl = "https://www.uiassistant.io" // TODO: Replace with your actual backend URL
 
     this.system = system.trim()
 
@@ -318,7 +308,7 @@ export default class Agent {
     this.pendingConfirmation = null
 
     // Platform configuration for auth
-    this.platformUrl = process.env.PLATFORM_URL || "http://localhost:3000"
+    this.platformUrl = "https://www.uiassistant.io"
   }
 
   async query(query, pushEvent) {

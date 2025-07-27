@@ -1,21 +1,12 @@
 import { createClient } from "@supabase/supabase-js"
 import keytar from "keytar"
-import fs from "fs"
-import path from "path"
-import { app } from "electron"
 
 export default class AuthClient {
   constructor() {
-    // Load config from config.json
-    const configPath = app.isPackaged 
-      ? path.join(process.resourcesPath, 'config.json')
-      : path.join(process.cwd(), 'config.json')
-    
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
-    
+    // Use hardcoded Supabase credentials
     this.supabase = createClient(
-      config.supabase.url,
-      config.supabase.anonKey
+      "https://kbqzmwyfhyxfaewpkytz.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImticXptd3lmaHl4ZmFld3BreXR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3OTcxODEsImV4cCI6MjA2ODM3MzE4MX0.l8AjHRLswuavcAakcdzwHT3XUiXi2fr_hE7d-Xtf13c"
     )
 
     // Keytar service label
@@ -36,7 +27,10 @@ export default class AuthClient {
    */
   async loadStoredSession() {
     try {
-      const storedJson = await keytar.getPassword(this.KEYTAR_SERVICE, "session")
+      const storedJson = await keytar.getPassword(
+        this.KEYTAR_SERVICE,
+        "session"
+      )
       if (storedJson) {
         const parsed = JSON.parse(storedJson)
         if (parsed.session && parsed.user) {

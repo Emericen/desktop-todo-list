@@ -10,6 +10,7 @@
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "publish": "electron-builder -p always",
+    "build": "electron-builder",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux"
@@ -24,15 +25,6 @@
       }
     ],
     "afterSign": "./build/notarize.js",
-    "extraFiles": [
-      {
-        "from": "config.json",
-        "to": "config.json",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
     "mac": {
       "category": "public.app-category.productivity"
     },

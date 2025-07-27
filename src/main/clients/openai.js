@@ -1,18 +1,10 @@
+import { app } from "electron"
 import fs from "fs"
 import path from "path"
-import { app } from "electron"
 
 export default class OpenAIClient {
   constructor() {
-    // Load config from config.json
-    const configPath = app.isPackaged 
-      ? path.join(process.resourcesPath, 'config.json')
-      : path.join(process.cwd(), 'config.json')
-    
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
-    
-    // Use platform API instead of direct OpenAI client
-    this.platformBaseUrl = config.backend.url
+    this.platformBaseUrl = "https://www.uiassistant.io"
   }
 
   async transcribeAudio(audioBuffer, filename = "audio.webm") {
@@ -27,11 +19,11 @@ export default class OpenAIClient {
       // Create form data for platform API
       const formData = new FormData()
       const fileBlob = new Blob([fs.readFileSync(tempFilePath)], {
-        type: filename.includes('.webm') ? 'audio/webm' : 'audio/wav'
+        type: filename.includes(".webm") ? "audio/webm" : "audio/wav"
       })
-      formData.append('file', fileBlob, filename)
-      formData.append('model', 'whisper-1')
-      formData.append('response_format', 'text')
+      formData.append("file", fileBlob, filename)
+      formData.append("model", "whisper-1")
+      formData.append("response_format", "text")
 
       // Call platform API
       const response = await fetch(`${this.platformBaseUrl}/api/transcribe`, {
