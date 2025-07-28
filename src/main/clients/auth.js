@@ -1,5 +1,8 @@
 import { createClient } from "@supabase/supabase-js"
-import keytar from "keytar"
+import { safeStorage } from "electron"
+import fs from "fs"
+import path from "path"
+import { app } from "electron"
 
 export default class AuthClient {
   constructor() {
@@ -9,8 +12,8 @@ export default class AuthClient {
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImticXptd3lmaHl4ZmFld3BreXR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3OTcxODEsImV4cCI6MjA2ODM3MzE4MX0.l8AjHRLswuavcAakcdzwHT3XUiXi2fr_hE7d-Xtf13c"
     )
 
-    // Keytar service label
-    this.KEYTAR_SERVICE = "assistant-ui-auth"
+    // Safe storage file path
+    this.STORAGE_FILE = path.join(app.getPath('userData'), 'session.enc')
 
     // in-memory state for the lightweight wizard
     this.stage = "start" // start, email, otp
@@ -27,29 +30,66 @@ export default class AuthClient {
    */
   async loadStoredSession() {
     try {
-      const storedJson = await keytar.getPassword(
-        this.KEYTAR_SERVICE,
-        "session"
-      )
-      if (storedJson) {
-        const parsed = JSON.parse(storedJson)
-        if (parsed.session && parsed.user) {
-          this.session = parsed.session
-          this.user = parsed.user
-          // Set session in supabase so it can refresh automatically
-          const { error } = await this.supabase.auth.setSession({
-            access_token: this.session.access_token,
-            refresh_token: this.session.refresh_token
-          })
-          if (error) {
-            console.error("Failed to restore session:", error)
-            await keytar.deletePassword(this.KEYTAR_SERVICE, "session")
-            this.reset()
+      if (!safeStorage.isEncryptionAvailable()) {
+        console.warn("Encryption not available, skipping session restore")
+        return
+      }
+
+      if (fs.existsSync(this.STORAGE_FILE)) {
+        const encryptedData = fs.readFileSync(this.STORAGE_FILE)
+        const storedData = safeStorage.decryptString(encryptedData)
+        
+        if (storedData) {
+          const parsed = JSON.parse(storedData)
+          if (parsed.session && parsed.user) {
+            this.session = parsed.session
+            this.user = parsed.user
+            // Set session in supabase so it can refresh automatically
+            const { error } = await this.supabase.auth.setSession({
+              access_token: this.session.access_token,
+              refresh_token: this.session.refresh_token
+            })
+            if (error) {
+              console.error("Failed to restore session:", error)
+              this.clearStoredSession()
+              this.reset()
+            }
           }
         }
       }
     } catch (err) {
       console.error("loadStoredSession error", err)
+    }
+  }
+
+  /**
+   * Clear stored session data
+   */
+  clearStoredSession() {
+    try {
+      if (fs.existsSync(this.STORAGE_FILE)) {
+        fs.unlinkSync(this.STORAGE_FILE)
+      }
+    } catch (err) {
+      console.error("Failed to clear stored session:", err)
+    }
+  }
+
+  /**
+   * Save session data using safe storage
+   */
+  async saveSession(session, user) {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) {
+        console.warn("Encryption not available, cannot save session")
+        return
+      }
+
+      const sessionData = JSON.stringify({ session, user })
+      const encryptedData = safeStorage.encryptString(sessionData)
+      fs.writeFileSync(this.STORAGE_FILE, encryptedData)
+    } catch (err) {
+      console.error("Failed to save session:", err)
     }
   }
 
@@ -119,15 +159,7 @@ export default class AuthClient {
             this.session = data.session
 
             // Persist session for next launch
-            try {
-              await keytar.setPassword(
-                this.KEYTAR_SERVICE,
-                "session",
-                JSON.stringify({ session: this.session, user: this.user })
-              )
-            } catch (err) {
-              console.error("Failed to save session:", err)
-            }
+            await this.saveSession(this.session, this.user)
 
             pushEvent({
               type: "text",
@@ -176,7 +208,7 @@ export default class AuthClient {
    */
   async logout() {
     await this.supabase.auth.signOut()
-    await keytar.deletePassword(this.KEYTAR_SERVICE, "session")
+    this.clearStoredSession()
     this.reset()
   }
 }

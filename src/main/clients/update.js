@@ -9,10 +9,6 @@ export default class UpdateClient {
     this.pendingUpdateInfo = null
     this.onAwaitingResponse = null
 
-    if (process.env.NODE_ENV !== "production") {
-      autoUpdater.forceDevUpdateConfig = true
-    }
-
     this.setupAutoUpdater()
   }
 
