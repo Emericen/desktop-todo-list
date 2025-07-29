@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js"
-import { safeStorage } from "electron"
 import fs from "fs"
 import path from "path"
 import { app } from "electron"
@@ -12,8 +11,8 @@ export default class AuthClient {
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImticXptd3lmaHl4ZmFld3BreXR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3OTcxODEsImV4cCI6MjA2ODM3MzE4MX0.l8AjHRLswuavcAakcdzwHT3XUiXi2fr_hE7d-Xtf13c"
     )
 
-    // Safe storage file path
-    this.STORAGE_FILE = path.join(app.getPath('userData'), 'session.enc')
+    // Session storage file path (unencrypted JSON)
+    this.STORAGE_FILE = path.join(app.getPath('userData'), 'session.json')
 
     // in-memory state for the lightweight wizard
     this.stage = "start" // start, email, otp
@@ -25,19 +24,13 @@ export default class AuthClient {
   }
 
   /**
-   * Attempt to restore a previously saved session from the OS keychain.
+   * Attempt to restore a previously saved session from local storage.
    * Call this once on app startup.
    */
   async loadStoredSession() {
     try {
-      if (!safeStorage.isEncryptionAvailable()) {
-        console.warn("Encryption not available, skipping session restore")
-        return
-      }
-
       if (fs.existsSync(this.STORAGE_FILE)) {
-        const encryptedData = fs.readFileSync(this.STORAGE_FILE)
-        const storedData = safeStorage.decryptString(encryptedData)
+        const storedData = fs.readFileSync(this.STORAGE_FILE, 'utf8')
         
         if (storedData) {
           const parsed = JSON.parse(storedData)
@@ -76,18 +69,12 @@ export default class AuthClient {
   }
 
   /**
-   * Save session data using safe storage
+   * Save session data to local storage
    */
   async saveSession(session, user) {
     try {
-      if (!safeStorage.isEncryptionAvailable()) {
-        console.warn("Encryption not available, cannot save session")
-        return
-      }
-
-      const sessionData = JSON.stringify({ session, user })
-      const encryptedData = safeStorage.encryptString(sessionData)
-      fs.writeFileSync(this.STORAGE_FILE, encryptedData)
+      const sessionData = JSON.stringify({ session, user }, null, 2)
+      fs.writeFileSync(this.STORAGE_FILE, sessionData, 'utf8')
     } catch (err) {
       console.error("Failed to save session:", err)
     }
@@ -204,7 +191,7 @@ export default class AuthClient {
   }
 
   /**
-   * Explicit logout – clears memory and keychain entry.
+   * Explicit logout – clears memory and stored session.
    */
   async logout() {
     await this.supabase.auth.signOut()

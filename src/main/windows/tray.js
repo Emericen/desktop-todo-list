@@ -1,19 +1,22 @@
 import { Tray, Menu, nativeImage, app } from "electron"
+import path from "path"
 
 // ========== SYSTEM TRAY STATE ==========
 let tray = null
 
 export function createSystemTray(callbacks = {}) {
-  const { onShowChat, onOpenAccount, onQuit } = callbacks
+  const { onShowChat, onQuit } = callbacks
 
-  // Create a simple white square icon (16x16)
-  const size = 16
-  const whiteBuffer = Buffer.alloc(size * size * 4, 255) // just white square
-  const whitePixel = nativeImage.createFromBuffer(whiteBuffer, {
-    width: size,
-    height: size
-  })
-  tray = new Tray(whitePixel)
+  // Use the atom symbol icon for system tray
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "atom_symbol.png")
+    : path.join(process.cwd(), "resources", "atom_symbol.png")
+  const trayIcon = nativeImage.createFromPath(iconPath)
+
+  // Resize for tray (22x22 for better visibility)
+  const resizedIcon = trayIcon.resize({ width: 22, height: 22 })
+
+  tray = new Tray(resizedIcon)
 
   // Create context menu
   const contextMenu = Menu.buildFromTemplate([
@@ -21,13 +24,6 @@ export function createSystemTray(callbacks = {}) {
       label: "Show Chat",
       click: () => {
         if (onShowChat) onShowChat()
-      }
-    },
-    // { type: "separator" },
-    {
-      label: "Account",
-      click: () => {
-        if (onOpenAccount) onOpenAccount()
       }
     },
     // { type: "separator" },

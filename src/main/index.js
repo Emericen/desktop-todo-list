@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, nativeImage } from "electron"
 import { electronApp, optimizer } from "@electron-toolkit/utils"
 import path from "path"
 import {
@@ -16,13 +16,6 @@ import SlashCommandHandler from "./services/slashCommandHandler.js"
 import QueryOrchestrator from "./services/queryOrchestrator.js"
 import IPCHandlers from "./services/ipcHandlers.js"
 import UserSettings from "./services/userSettings.js"
-
-// Environment variables are now handled via platform API and config.json
-
-// Hide dock on macOS
-if (process.platform === "darwin") {
-  app.dock.hide()
-}
 
 // ========== APP INITIALIZATION ==========
 app.whenReady().then(async () => {
@@ -55,12 +48,12 @@ app.whenReady().then(async () => {
   // Wire up dependencies explicitly
   slashCommandHandler.setAuthClient(authClient)
   slashCommandHandler.setUserSettings(userSettings)
-  
+
   queryOrchestrator.setAuthClient(authClient)
   queryOrchestrator.setAIAgent(aiAgent)
   queryOrchestrator.setSlashCommandHandler(slashCommandHandler)
   queryOrchestrator.setUpdateClient(updateClient)
-  
+
   // Set callback for update responses
   updateClient.setAwaitingResponseCallback((waiting) => {
     queryOrchestrator.awaitingUpdateResponse = waiting
@@ -87,9 +80,6 @@ app.whenReady().then(async () => {
 
   createSystemTray({
     onShowChat: () => showChatWindow(),
-    onOpenAccount: () => {
-      // TODO: open account home page url
-    },
     onQuit: () => app.quit()
   })
 

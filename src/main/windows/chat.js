@@ -26,8 +26,8 @@ export function createChatWindow(userSettings = null) {
     screen.getPrimaryDisplay().workAreaSize
 
   // Use settings or fallback to defaults
-  const windowWidth = userSettings?.get('window.width') || 540
-  const windowHeight = userSettings?.get('window.height') || 720
+  const windowWidth = userSettings?.get("window.width") || 540
+  const windowHeight = userSettings?.get("window.height") || 720
 
   // Position near system tray based on platform
   let x, y
@@ -48,7 +48,7 @@ export function createChatWindow(userSettings = null) {
     x: x,
     y: y,
     show: false,
-    resizable: userSettings?.get('window.resizable') ?? false,
+    resizable: userSettings?.get("window.resizable") ?? false,
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? { icon: whiteIcon } : {}),
     webPreferences: {
@@ -56,15 +56,12 @@ export function createChatWindow(userSettings = null) {
       sandbox: false
     },
     frame: false,
-    skipTaskbar: userSettings?.get('window.skipTaskbar') ?? true
+    visibleOnAllWorkspaces: true
   })
 
-  // Set always on top based on settings
-  if (userSettings?.get('window.alwaysOnTop') ?? true) {
-    chatWindow.setAlwaysOnTop(true, "screen-saver")
-  }
-  chatWindow.setVisibleOnAllWorkspaces(true)
-  chatWindow.setContentProtection(false) // Allow normal screen sharing/screenshots
+  chatWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  chatWindow.setAlwaysOnTop(true, "screen-saver", 1)
+  chatWindow.setContentProtection(false)
 
   chatWindow.on("ready-to-show", () => {
     showChatWindow()
@@ -72,7 +69,7 @@ export function createChatWindow(userSettings = null) {
 
   // Auto-hide chat when it loses focus (user clicked elsewhere)
   // Only add blur handler if autoHide is enabled in settings
-  if (userSettings?.get('window.autoHide') ?? true) {
+  if (userSettings?.get("window.autoHide") ?? true) {
     chatWindow.on("blur", () => {
       // Only hide if window is currently visible
       if (chatWindow?.isVisible()) {

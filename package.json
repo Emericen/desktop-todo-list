@@ -25,8 +25,16 @@
       }
     ],
     "afterSign": "./build/notarize.js",
+    "extraResources": [
+      {
+        "from": "resources/",
+        "to": ".",
+        "filter": ["**/*"]
+      }
+    ],
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "resources/atom_symbol.icns"
     },
     "win": {
       "target": "nsis"
