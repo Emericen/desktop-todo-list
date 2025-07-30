@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Mic, MicOff, Send, Loader2 } from "lucide-react"
 import useStore from "@/store/useStore"
-import { useTranscription } from "../hooks/useTranscription.js"
+import { useDictation } from "../hooks/useDictation.js"
 import { useQueryInput } from "../hooks/useQueryInput.js"
 
 export default function QueryBar() {
@@ -19,8 +19,10 @@ export default function QueryBar() {
   const { input, setInput, isSubmitting, handleSubmit, handleKeyDown } =
     useQueryInput(textareaRef)
 
-  const { isTranscribing, isProcessingAudio, handleTranscribe } =
-    useTranscription(textareaRef, setInput)
+  const { dictationState, handleDictation } = useDictation(
+    textareaRef,
+    setInput
+  )
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background p-4">
@@ -34,22 +36,17 @@ export default function QueryBar() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={
-                  isTranscribing
-                    ? "Listening..."
-                    : isProcessingAudio
-                    ? "Converting speech to text..."
-                    : awaitingUserResponse
-                    ? "Press Enter to confirm or Esc to cancel"
-                    : "What can I do for you? type `/help` for help"
-                }
+                placeholder={getInputPlaceholder()}
                 className={`w-full min-h-[24px] max-h-[150px] resize-none border-none outline-none bg-transparent text-left overflow-y-auto ${
-                  isTranscribing || isProcessingAudio
+                  dictationState === DICTATION_STATE.LISTENING ||
+                  dictationState === DICTATION_STATE.TRANSCRIBING
                     ? "text-muted-foreground"
                     : ""
                 }`}
                 disabled={
-                  awaitingUserResponse || isProcessingAudio || isTranscribing
+                  awaitingUserResponse ||
+                  dictationState === DICTATION_STATE.TRANSCRIBING ||
+                  dictationState === DICTATION_STATE.LISTENING
                 }
                 spellCheck="false"
                 autoCorrect="off"
@@ -78,16 +75,23 @@ export default function QueryBar() {
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
-                      variant={isTranscribing ? "destructive" : "ghost"}
+                      variant={
+                        dictationState === DICTATION_STATE.LISTENING
+                          ? "destructive"
+                          : "ghost"
+                      }
                       size="sm"
                       className="h-7 w-7 p-0"
                       style={{ WebkitAppRegion: "no-drag" }}
                       onClick={handleTranscribe}
-                      disabled={awaitingUserResponse || isProcessingAudio}
+                      disabled={
+                        awaitingUserResponse ||
+                        dictationState === DICTATION_STATE.TRANSCRIBING
+                      }
                     >
-                      {isTranscribing ? (
+                      {dictationState === DICTATION_STATE.LISTENING ? (
                         <MicOff className="h-3.5 w-3.5" />
-                      ) : isProcessingAudio ? (
+                      ) : dictationState === DICTATION_STATE.TRANSCRIBING ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Mic className="h-3.5 w-3.5" />
@@ -95,9 +99,9 @@ export default function QueryBar() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {isTranscribing
+                    {dictationState === DICTATION_STATE.LISTENING
                       ? "Stop (Alt+\\)"
-                      : isProcessingAudio
+                      : dictationState === DICTATION_STATE.TRANSCRIBING
                       ? "Processing"
                       : "Dictate (Alt+\\)"}
                   </TooltipContent>

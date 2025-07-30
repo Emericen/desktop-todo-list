@@ -1,10 +1,10 @@
 import { create } from "zustand"
-import { subscribeWithSelector } from 'zustand/middleware'
+import { subscribeWithSelector } from "zustand/middleware"
 import { apiService } from "../services/apiService.js"
 import { createMessagesSlice } from "./slices/messagesSlice.js"
-import { createTranscriptionSlice } from "./slices/transcriptionSlice.js"
+import { createDictationSlice } from "./slices/dictationSlice.js"
 import { createSettingsSlice } from "./slices/settingsSlice.js"
-import { createUISlice } from "./slices/uiSlice.js"
+import { createChatSlice } from "./slices/chatSlice.js"
 // Initialize error service (this sets up global error handlers)
 import "../services/errorService.js"
 
@@ -16,9 +16,9 @@ const useStore = create(
   subscribeWithSelector((set, get) => ({
     // Compose all slices
     ...createMessagesSlice(set, get),
-    ...createTranscriptionSlice(set, get),
+    ...createDictationSlice(set, get),
     ...createSettingsSlice(set, get),
-    ...createUISlice(set, get)
+    ...createChatSlice(set, get)
   }))
 )
 
@@ -32,13 +32,13 @@ if (typeof window !== "undefined") {
       useStore.getState().replaceLastImageMessage(message)
     }
   })
-  
+
   // Also register the clear messages IPC listener
   apiService.onClearMessages(() => {
     // This will trigger the event bus event that components listen to
   })
 
-  // Register focus input IPC listener  
+  // Register focus input IPC listener
   apiService.onFocusQueryInput(() => {
     // This will trigger the event bus event that components listen to
   })

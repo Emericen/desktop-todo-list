@@ -1,5 +1,5 @@
-import { apiService } from './apiService.js'
-import { MessageService } from './messageService.js'
+import { apiService } from "./apiService.js"
+import { MessageService } from "./messageService.js"
 
 /**
  * Streaming Service - Handles query submission and streaming response processing
@@ -15,7 +15,13 @@ export class StreamingService {
    * @param {Array} currentMessages - Current messages array
    * @returns {Promise} Query completion promise
    */
-  static async submitQuery(rawQuery, selectedModel, addMessage, updateMessages, currentMessages) {
+  static async submitQuery(
+    rawQuery,
+    selectedModel,
+    addMessage,
+    updateMessages,
+    currentMessages
+  ) {
     const query = rawQuery.trim()
     if (!query) return
 
@@ -49,7 +55,7 @@ export class StreamingService {
 
           // Update the store with processed messages
           updateMessages(result.updatedMessages)
-          
+
           // Update tracking variables
           messageIndex = result.newMessageIndex
           isFirstEvent = result.isFirstEvent
@@ -76,15 +82,25 @@ export class StreamingService {
    * @param {Function} setAwaitingUserResponse - Function to set awaiting response state
    * @param {Array} currentMessages - Current messages array
    */
-  static async handleConfirmation(index, choice, updateMessages, setAwaitingUserResponse, currentMessages) {
+  static async handleConfirmation(
+    index,
+    choice,
+    updateMessages,
+    setAwaitingUserResponse,
+    currentMessages
+  ) {
     try {
       // Update the message state
-      const updatedMessages = MessageService.updateConfirmationChoice(currentMessages(), index, choice)
+      const updatedMessages = MessageService.updateConfirmationChoice(
+        currentMessages(),
+        index,
+        choice
+      )
       updateMessages(updatedMessages)
-      
+
       // Update UI state
       setAwaitingUserResponse(false)
-      
+
       // Send confirmation to backend
       const confirmed = choice === "approved"
       await apiService.handleConfirmation(confirmed)
@@ -103,7 +119,7 @@ export class StreamingService {
     try {
       // Clear local state
       clearMessages()
-      
+
       // Clear backend conversation
       await apiService.clearAgentMessages()
     } catch (error) {
