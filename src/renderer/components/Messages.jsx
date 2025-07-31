@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Check, X, Terminal, CornerDownLeft, Delete } from "lucide-react"
-import { useConfirmation, useTerminalConfirmation } from "../hooks/useConfirmation.js"
+// Terminal confirmation handled by parent useChat hook
 import ReactMarkdown from "react-markdown"
 
 export function UserMessage({ message }) {
@@ -70,17 +70,28 @@ export function TextMessage({ message }) {
   )
 }
 
-export function TerminalMessage({ message }) {
-  const { isExecuted, result, handleConfirm, handleCancel } = useTerminalConfirmation(message)
-
-  const [displayResult, setDisplayResult] = useState(result)
+export function TerminalMessage({ message, onConfirm, onCancel }) {
+  const [displayResult, setDisplayResult] = useState(message.result || null)
+  const [isExecuted, setIsExecuted] = useState(message.executed || false)
 
   // Update display result when message changes
   useEffect(() => {
     if (message.result) {
       setDisplayResult(message.result)
+      setIsExecuted(true)
     }
   }, [message.result])
+
+  const handleConfirm = () => {
+    setIsExecuted(true)
+    if (onConfirm) onConfirm()
+  }
+
+  const handleCancel = () => {
+    setIsExecuted(true)
+    setDisplayResult({ success: false, error: "Command cancelled", executionTime: 0 })
+    if (onCancel) onCancel()
+  }
 
   return (
     <div className="w-full group">
@@ -182,26 +193,10 @@ export function ImageMessage({ message }) {
   )
 }
 
-export function ConfirmationMessage({ message, index }) {
-  const { handleApprove, handleReject } = useConfirmation(message, index)
-
-  // Add keyboard event listener
-  useEffect(() => {
-    if (message.answered) return
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        handleApprove()
-      } else if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault()
-        handleReject()
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [index, message.answered])
+export function ConfirmationMessage({ message, index, onApprove, onReject }) {
+  // Use props instead of hook - keyboard handling moved to useChat
+  const handleApprove = onApprove
+  const handleReject = onReject
 
   return (
     <div

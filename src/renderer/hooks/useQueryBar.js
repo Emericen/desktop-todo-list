@@ -78,25 +78,25 @@ export const useQueryBar = (textareaRef) => {
     toggleDictation()
   }, [toggleDictation])
 
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault()
-        handleSubmitQuery(input)
-      }
-    },
-    [handleSubmitQuery, input]
-  )
-
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault()
       if (canSubmitQuery()) {
-        handleSubmitQuery(input)
-        setInput("")
+        const queryText = input.trim()
+        setInput("") // Clear immediately
+        handleSubmitQuery(queryText)
       }
     },
-    [handleSubmitQuery, input, canSubmitQuery]
+    [handleSubmitQuery, input, canSubmitQuery, setInput]
+  )
+
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        handleSubmit(e)
+      }
+    },
+    [handleSubmit]
   )
 
   // Set up dictation callback to append text and focus cursor

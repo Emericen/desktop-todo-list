@@ -96,13 +96,31 @@ export const createMessagesSlice = (set, get) => ({
       await window.api.sendQuery(
         { query, selectedModel: store.selectedModel },
         (streamData) => {
-          // Handle streaming data - simplified version
+          // Handle streaming data - replace loading message with response
           const messages = get().messages
           const updatedMessages = [...messages]
-          updatedMessages[updatedMessages.length - 1] = {
-            ...streamData,
-            timestamp: new Date()
+          const lastIndex = updatedMessages.length - 1
+          
+          // If last message is loading, replace it. Otherwise append.
+          if (updatedMessages[lastIndex]?.type === "loading") {
+            updatedMessages[lastIndex] = {
+              ...streamData,
+              timestamp: new Date()
+            }
+          } else if (updatedMessages[lastIndex]?.type === "text") {
+            // Append to existing text message for streaming
+            updatedMessages[lastIndex] = {
+              ...updatedMessages[lastIndex],
+              content: updatedMessages[lastIndex].content + streamData.content
+            }
+          } else {
+            // Add as new message
+            updatedMessages.push({
+              ...streamData,
+              timestamp: new Date()
+            })
           }
+          
           set({ messages: updatedMessages })
         }
       )
