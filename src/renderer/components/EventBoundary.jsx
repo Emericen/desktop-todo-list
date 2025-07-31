@@ -1,5 +1,4 @@
 import React from "react"
-import { eventBus } from "../services/eventBus.js"
 
 /**
  * Error Boundary component for catching and handling React errors
@@ -26,13 +25,12 @@ class EventBoundary extends React.Component {
       errorInfo: errorInfo
     })
 
-    // Emit error event to the event bus
-    eventBus.emit('ui:error', {
+    // Log error to console (could be enhanced with external service)
+    console.error('UI Error:', {
       error: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
-      props: this.props
+      timestamp: new Date().toISOString()
     })
 
     // Optional: send error to logging service
@@ -91,33 +89,6 @@ class EventBoundary extends React.Component {
   }
 }
 
-/**
- * Hook for listening to UI errors from the event bus
- * Useful for global error handling, logging, or notifications
- */
-export const useErrorHandler = () => {
-  const [errors, setErrors] = React.useState([])
-
-  React.useEffect(() => {
-    const cleanup = eventBus.on('ui:error', (errorData) => {
-      setErrors(prev => [...prev.slice(-9), errorData]) // Keep last 10 errors
-      
-      // Optional: Show notification or toast
-      console.warn('UI Error detected:', errorData)
-    })
-
-    return cleanup
-  }, [])
-
-  const clearErrors = React.useCallback(() => {
-    setErrors([])
-  }, [])
-
-  return {
-    errors,
-    clearErrors,
-    hasErrors: errors.length > 0
-  }
-}
+// Note: Error handling can be enhanced with external services like Sentry if needed
 
 export default EventBoundary

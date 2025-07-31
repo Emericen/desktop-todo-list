@@ -1,4 +1,4 @@
-import { apiService } from "../../services/apiService.js"
+// Direct API calls instead of service layer
 
 const DICTATION_STATE = {
   IDLE: "idle",
@@ -48,7 +48,7 @@ export const createDictationSlice = (set, get) => ({
         try {
           // Flag while waiting response
           set({ dictationState: DICTATION_STATE.TRANSCRIBING })
-          const result = await apiService.transcribeAudio({
+          const result = await window.api.transcribeAudio({
             audio: base64Audio,
             filename: "recording.webm"
           })

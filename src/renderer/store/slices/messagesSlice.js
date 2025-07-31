@@ -1,5 +1,44 @@
-import { StreamingService } from "../../services/streamingService.js"
-import { MessageService } from "../../services/messageService.js"
+// Inline message utilities instead of service layer
+const MessageUtils = {
+  addConfirmationMessage: (message) => {
+    return message.type === "confirmation"
+      ? { ...message, answered: null }
+      : message
+  },
+
+  replaceOrAddImageMessage: (messages, newMessage) => {
+    if (
+      messages.length !== 0 &&
+      messages[messages.length - 1].type === "image"
+    ) {
+      return [...messages.slice(0, -1), newMessage]
+    }
+    return [...messages, newMessage]
+  },
+
+  updateConfirmationChoice: (messages, index, choice) => {
+    const updatedMessages = [...messages]
+    if (
+      updatedMessages[index] &&
+      updatedMessages[index].type === "confirmation"
+    ) {
+      updatedMessages[index] = { ...updatedMessages[index], answered: choice }
+    }
+    return updatedMessages
+  },
+
+  createUserMessage: (content) => ({
+    type: "user",
+    content: content.trim(),
+    timestamp: new Date()
+  }),
+
+  createLoadingMessage: () => ({
+    type: "loading",
+    content: "",
+    timestamp: new Date()
+  })
+}
 
 /**
  * Messages Store Slice
@@ -14,50 +53,78 @@ export const createMessagesSlice = (set, get) => ({
     set((state) => ({
       messages: [
         ...state.messages,
-        MessageService.addConfirmationMessage(message)
+        MessageUtils.addConfirmationMessage(message)
       ]
     })),
 
   replaceLastImageMessage: (message) =>
     set((state) => ({
-      messages: MessageService.replaceOrAddImageMessage(state.messages, message)
+      messages: MessageUtils.replaceOrAddImageMessage(state.messages, message)
     })),
 
   clearMessages: () => set({ messages: [] }),
 
   selectChoice: (index, choice) =>
     set((state) => ({
-      messages: MessageService.updateConfirmationChoice(state.messages, index, choice)
+      messages: MessageUtils.updateConfirmationChoice(
+        state.messages,
+        index,
+        choice
+      )
     })),
 
-  // Complex actions that use services
-  submitQuery: async (rawQuery) => {
+  // Direct API actions
+  handleSubmitQuery: async (rawQuery) => {
+    const query = rawQuery.trim()
+    if (!query) return
+
     const store = get()
-    
-    await StreamingService.submitQuery(
-      rawQuery,
-      store.selectedModel,
-      store.addMessage,
-      (messages) => set({ messages }),
-      () => get().messages
-    )
+
+    // Add user message
+    const userMessage = MessageUtils.createUserMessage(query)
+    store.addMessage(userMessage)
+
+    // Add loading message
+    const loadingMessage = MessageUtils.createLoadingMessage()
+    store.addMessage(loadingMessage)
+
+    // Set chat state to waiting
+    store.setChatState("waiting_backend_response")
+
+    try {
+      // Direct API call
+      await window.api.sendQuery(
+        { query, selectedModel: store.selectedModel },
+        (streamData) => {
+          // Handle streaming data - simplified version
+          const messages = get().messages
+          const updatedMessages = [...messages]
+          updatedMessages[updatedMessages.length - 1] = {
+            ...streamData,
+            timestamp: new Date()
+          }
+          set({ messages: updatedMessages })
+        }
+      )
+
+      store.setChatState("idle")
+    } catch (error) {
+      console.error("Query failed:", error)
+      store.setChatState("idle")
+    }
   },
 
-  handleConfirmation: async (index, choice) => {
+  handleConfirmation: async (confirmed) => {
     const store = get()
-    
-    await StreamingService.handleConfirmation(
-      index,
-      choice,
-      (messages) => set({ messages }),
-      store.setAwaitingUserResponse,
-      () => get().messages
-    )
-  },
+    store.setChatState("waiting_backend_response")
 
-  clearMessagesAndBackend: async () => {
-    const store = get()
-    await StreamingService.clearMessages(store.clearMessages)
+    try {
+      await window.api.handleConfirmation(confirmed)
+      store.setChatState("idle")
+    } catch (error) {
+      console.error("Confirmation failed:", error)
+      store.setChatState("idle")
+    }
   }
 })
 

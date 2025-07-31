@@ -1,41 +1,38 @@
 import { useState, useEffect, useCallback } from "react"
 import useStore from "../store/useStore.js"
-import { apiService } from "../services/apiService.js"
 
 /**
  * Custom hook for handling confirmation message interactions
  * Encapsulates confirmation state and user choice handling
  */
 export const useConfirmation = (message, index) => {
-  const { selectChoice, setAwaitingUserResponse } = useStore()
+  const selectChoice = useStore(s => s.selectChoice)
+  const setChatState = useStore(s => s.setChatState)
+  const handleConfirmation = useStore(s => s.handleConfirmation)
 
   const handleApprove = useCallback(async () => {
     selectChoice(index, "approved")
-    setAwaitingUserResponse(false)
-    // Send confirmation to backend
-    await apiService.handleConfirmation(true)
-  }, [index, selectChoice, setAwaitingUserResponse])
+    await handleConfirmation(true)
+  }, [index, selectChoice, handleConfirmation])
 
   const handleReject = useCallback(async () => {
     selectChoice(index, "rejected")
-    setAwaitingUserResponse(false)
-    // Send confirmation to backend
-    await apiService.handleConfirmation(false)
-  }, [index, selectChoice, setAwaitingUserResponse])
+    await handleConfirmation(false)
+  }, [index, selectChoice, handleConfirmation])
 
   // Set awaiting response when component mounts and not answered
   useEffect(() => {
     if (!message.answered) {
-      setAwaitingUserResponse(true)
+      setChatState('waiting_user_response')
     }
 
-    // Cleanup: reset awaiting response when component unmounts
+    // Cleanup: reset chat state when component unmounts
     return () => {
       if (!message.answered) {
-        setAwaitingUserResponse(false)
+        setChatState('idle')
       }
     }
-  }, [message.answered, setAwaitingUserResponse])
+  }, [message.answered, setChatState])
 
   // Keyboard shortcuts for confirmation
   useEffect(() => {
@@ -72,35 +69,35 @@ export const useConfirmation = (message, index) => {
 export const useTerminalConfirmation = (message) => {
   const [isExecuted, setIsExecuted] = useState(message.executed || false)
   const [result, setResult] = useState(message.result || null)
-  const { setAwaitingUserResponse } = useStore()
+  const setChatState = useStore(s => s.setChatState)
+  const handleConfirmation = useStore(s => s.handleConfirmation)
 
   const handleConfirm = useCallback(async () => {
     setIsExecuted(true)
-    setAwaitingUserResponse(false)
-    // Send confirmation to backend
-    await apiService.handleConfirmation(true)
-  }, [setAwaitingUserResponse])
+    setChatState('idle')
+    await handleConfirmation(true)
+  }, [setChatState, handleConfirmation])
 
   const handleCancel = useCallback(async () => {
     setIsExecuted(true)
     setResult({ success: false, error: "Command cancelled", executionTime: 0 })
-    setAwaitingUserResponse(false)
-    await apiService.handleConfirmation(false)
-  }, [setAwaitingUserResponse])
+    setChatState('idle')
+    await handleConfirmation(false)
+  }, [setChatState, handleConfirmation])
 
   // Set awaiting response when component mounts and not executed
   useEffect(() => {
     if (!isExecuted && !message.executed) {
-      setAwaitingUserResponse(true)
+      setChatState('waiting_user_response')
     }
 
-    // Cleanup: reset awaiting response when component unmounts
+    // Cleanup: reset chat state when component unmounts
     return () => {
       if (!isExecuted && !message.executed) {
-        setAwaitingUserResponse(false)
+        setChatState('idle')
       }
     }
-  }, [isExecuted, message.executed, setAwaitingUserResponse])
+  }, [isExecuted, message.executed, setChatState])
 
   // Keyboard shortcuts for terminal confirmation
   useEffect(() => {
