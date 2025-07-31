@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Check, X, Terminal, CornerDownLeft, Delete } from "lucide-react"
-// Terminal confirmation handled by parent useChat hook
+import { Check, X, CornerDownLeft, Delete } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 
 export function UserMessage({ message }) {
@@ -89,7 +88,11 @@ export function TerminalMessage({ message, onConfirm, onCancel }) {
 
   const handleCancel = () => {
     setIsExecuted(true)
-    setDisplayResult({ success: false, error: "Command cancelled", executionTime: 0 })
+    setDisplayResult({
+      success: false,
+      error: "Command cancelled",
+      executionTime: 0
+    })
     if (onCancel) onCancel()
   }
 
@@ -100,7 +103,6 @@ export function TerminalMessage({ message, onConfirm, onCancel }) {
           $ {message.content}
         </div>
         {!isExecuted ? (
-          // Before execution - show command with buttons
           <>
             <div className="flex justify-end gap-2">
               <Button
@@ -137,7 +139,6 @@ export function TerminalMessage({ message, onConfirm, onCancel }) {
                     {displayResult.error}
                   </pre>
                 )}
-                {/* Status indicator */}
                 <div className="flex items-center gap-2 text-xs">
                   {displayResult.success ? (
                     <Check className="h-3 w-3 text-green-500" />
@@ -149,7 +150,9 @@ export function TerminalMessage({ message, onConfirm, onCancel }) {
                       displayResult.success ? "text-green-400" : "text-red-400"
                     }
                   >
-                    {displayResult.success ? "Command completed" : "Command failed"}
+                    {displayResult.success
+                      ? "Command completed"
+                      : "Command failed"}
                   </span>
                   {displayResult.executionTime && (
                     <span className="text-gray-500">
@@ -194,14 +197,13 @@ export function ImageMessage({ message }) {
 }
 
 export function ConfirmationMessage({ message, index, onApprove, onReject }) {
-  // Use props instead of hook - keyboard handling moved to useChat
   const handleApprove = onApprove
   const handleReject = onReject
 
   return (
     <div
       className={`w-full ${
-        message.answered ? "opacity-50" : ""
+        message.answer ? "opacity-50" : ""
       } transition-opacity duration-200`}
     >
       <blockquote className="border-l-4 pl-4">
@@ -211,12 +213,12 @@ export function ConfirmationMessage({ message, index, onApprove, onReject }) {
         <div className="flex justify-end gap-2 items-center">
           <div
             className={`flex items-center mr-2 w-4 ${
-              message.answered ? "visible" : "invisible"
+              message.answer ? "visible" : "invisible"
             }`}
           >
-            {message.answered === "approved" ? (
+            {message.answer === "approved" ? (
               <Check className="h-4 w-4 text-green-600" />
-            ) : message.answered === "rejected" ? (
+            ) : message.answer === "rejected" ? (
               <X className="h-4 w-4 text-red-600" />
             ) : (
               <div className="h-4 w-4" />
@@ -226,7 +228,7 @@ export function ConfirmationMessage({ message, index, onApprove, onReject }) {
             size="sm"
             variant="ghost"
             onClick={handleReject}
-            disabled={message.answered !== null}
+            disabled={message.answer !== null}
             className="h-8 px-4"
           >
             NO
@@ -236,7 +238,7 @@ export function ConfirmationMessage({ message, index, onApprove, onReject }) {
             size="sm"
             variant="default"
             onClick={handleApprove}
-            disabled={message.answered !== null}
+            disabled={message.answer !== null}
             className="h-8 px-4"
           >
             YES

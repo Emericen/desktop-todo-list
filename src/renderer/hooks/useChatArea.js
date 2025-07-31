@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useEffect, useCallback, useRef } from "react"
 import useStore from "../store/useStore.js"
 
 /**
@@ -7,44 +7,16 @@ import useStore from "../store/useStore.js"
  */
 export const useChatArea = () => {
   const messages = useStore((s) => s.messages)
-
-  // Confirmation handling (consolidated from useConfirmation)
-  const selectChoice = useStore((s) => s.selectChoice)
-  const setChatState = useStore((s) => s.setChatState)
+  const bottomRef = useRef(null)
   const handleConfirmation = useStore((s) => s.handleConfirmation)
 
-  const handleApprove = useCallback(
-    async (index) => {
-      selectChoice(index, "approved")
-      await handleConfirmation(true)
-    },
-    [selectChoice, handleConfirmation]
-  )
+  const handleApprove = useCallback(async () => {
+    await handleConfirmation(true)
+  }, [handleConfirmation])
 
-  const handleReject = useCallback(
-    async (index) => {
-      selectChoice(index, "rejected")
-      await handleConfirmation(false)
-    },
-    [selectChoice, handleConfirmation]
-  )
-
-  // Terminal confirmation handling
-  const handleTerminalConfirm = useCallback(async () => {
-    setChatState("waiting_backend_response")
-    try {
-      await handleConfirmation(true)
-      setChatState("idle")
-    } catch (error) {
-      console.error("Terminal confirmation failed:", error)
-      setChatState("idle")
-    }
-  }, [setChatState, handleConfirmation])
-
-  const handleTerminalCancel = useCallback(async () => {
-    setChatState("idle")
+  const handleReject = useCallback(async () => {
     await handleConfirmation(false)
-  }, [setChatState, handleConfirmation])
+  }, [handleConfirmation])
 
   // Set up keyboard shortcuts for active confirmations
   useEffect(() => {
@@ -74,12 +46,17 @@ export const useChatArea = () => {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [messages, handleApprove, handleReject])
 
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    })
+  }, [messages])
+
   return {
     messages,
+    bottomRef,
     handleApprove,
-    handleReject,
-    handleTerminalConfirm,
-    handleTerminalCancel
+    handleReject
   }
 }
 

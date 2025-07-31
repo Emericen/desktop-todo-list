@@ -133,6 +133,12 @@ export const useQueryBar = (textareaRef) => {
     adjustTextareaHeight()
   }, [input, adjustTextareaHeight])
 
+  useEffect(() => {
+    if (chatState === CHAT_STATE.IDLE) {
+      textareaRef.current?.focus()
+    }
+  }, [chatState])
+
   // Initial autofocus when component mounts
   useEffect(() => {
     textareaRef.current?.focus()

@@ -9,8 +9,8 @@ import {
   LoadingMessage
 } from "./Messages.jsx"
 
-export default function ChatArea({ bottomRef }) {
-  const { messages, handleApprove, handleReject, handleTerminalConfirm, handleTerminalCancel } = useChatArea()
+export default function ChatArea() {
+  const { messages, bottomRef, handleApprove, handleReject } = useChatArea()
 
   return (
     <div className="flex-1 pt-10">
@@ -25,11 +25,11 @@ export default function ChatArea({ bottomRef }) {
                   return <ImageMessage key={index} message={message} />
                 case "bash":
                   return (
-                    <TerminalMessage 
-                      key={index} 
+                    <TerminalMessage
+                      key={index}
                       message={message}
-                      onConfirm={handleTerminalConfirm}
-                      onCancel={handleTerminalCancel}
+                      onConfirm={handleApprove}
+                      onCancel={handleReject}
                     />
                   )
                 case "error":

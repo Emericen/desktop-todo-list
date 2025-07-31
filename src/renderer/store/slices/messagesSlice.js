@@ -1,45 +1,3 @@
-// Inline message utilities instead of service layer
-const MessageUtils = {
-  addConfirmationMessage: (message) => {
-    return message.type === "confirmation"
-      ? { ...message, answered: null }
-      : message
-  },
-
-  replaceOrAddImageMessage: (messages, newMessage) => {
-    if (
-      messages.length !== 0 &&
-      messages[messages.length - 1].type === "image"
-    ) {
-      return [...messages.slice(0, -1), newMessage]
-    }
-    return [...messages, newMessage]
-  },
-
-  updateConfirmationChoice: (messages, index, choice) => {
-    const updatedMessages = [...messages]
-    if (
-      updatedMessages[index] &&
-      updatedMessages[index].type === "confirmation"
-    ) {
-      updatedMessages[index] = { ...updatedMessages[index], answered: choice }
-    }
-    return updatedMessages
-  },
-
-  createUserMessage: (content) => ({
-    type: "user",
-    content: content.trim(),
-    timestamp: new Date()
-  }),
-
-  createLoadingMessage: () => ({
-    type: "loading",
-    content: "",
-    timestamp: new Date()
-  })
-}
-
 /**
  * Messages Store Slice
  * Handles all message-related state and actions
@@ -49,81 +7,61 @@ export const createMessagesSlice = (set, get) => ({
   messages: [],
 
   // Actions
-  addMessage: (message) =>
-    set((state) => ({
-      messages: [
-        ...state.messages,
-        MessageUtils.addConfirmationMessage(message)
-      ]
-    })),
-
-  replaceLastImageMessage: (message) =>
-    set((state) => ({
-      messages: MessageUtils.replaceOrAddImageMessage(state.messages, message)
-    })),
-
-  clearMessages: () => set({ messages: [] }),
-
-  selectChoice: (index, choice) =>
-    set((state) => ({
-      messages: MessageUtils.updateConfirmationChoice(
-        state.messages,
-        index,
-        choice
-      )
-    })),
+  addMessage: (message) => set({ messages: [...get().messages, message] }),
+  setMessage: (index, message) => {
+    const messages = get().messages
+    const updatedMessages = [...messages]
+    updatedMessages[index] = message
+    set({ messages: updatedMessages })
+  },
 
   // Direct API actions
   handleSubmitQuery: async (rawQuery) => {
     const query = rawQuery.trim()
     if (!query) return
 
+    if (query === "/clear") {
+      set({ messages: [] })
+      await window.api.clearAgentMessages()
+      return
+    }
+
     const store = get()
-
-    // Add user message
-    const userMessage = MessageUtils.createUserMessage(query)
-    store.addMessage(userMessage)
-
-    // Add loading message
-    const loadingMessage = MessageUtils.createLoadingMessage()
-    store.addMessage(loadingMessage)
-
-    // Set chat state to waiting
+    store.addMessage({ type: "user", content: query })
+    store.addMessage({ type: "loading", content: "" })
     store.setChatState("waiting_backend_response")
 
     try {
       // Direct API call
-      await window.api.sendQuery(
-        { query, selectedModel: store.selectedModel },
-        (streamData) => {
-          // Handle streaming data - replace loading message with response
-          const messages = get().messages
-          const updatedMessages = [...messages]
-          const lastIndex = updatedMessages.length - 1
-          
-          // If last message is loading, replace it. Otherwise append.
-          if (updatedMessages[lastIndex]?.type === "loading") {
-            updatedMessages[lastIndex] = {
-              ...streamData,
-              timestamp: new Date()
-            }
-          } else if (updatedMessages[lastIndex]?.type === "text") {
-            // Append to existing text message for streaming
-            updatedMessages[lastIndex] = {
-              ...updatedMessages[lastIndex],
-              content: updatedMessages[lastIndex].content + streamData.content
-            }
-          } else {
-            // Add as new message
-            updatedMessages.push({
-              ...streamData,
-              timestamp: new Date()
-            })
-          }
-          
-          set({ messages: updatedMessages })
+      await window.api.sendQuery({ query }, (newMessage) => {
+        const messages = get().messages
+        const updatedMessages = [...messages]
+        const lastIndex = updatedMessages.length - 1
+
+        if (updatedMessages[lastIndex]?.type === "loading") {
+          updatedMessages[lastIndex] = { ...newMessage }
         }
-      )
+
+        if (
+          updatedMessages[lastIndex]?.type === "text" &&
+          newMessage.type === "text"
+        ) {
+          updatedMessages[lastIndex] = {
+            ...updatedMessages[lastIndex],
+            content: updatedMessages[lastIndex].content + newMessage.content
+          }
+          store.addMessage({ type: "loading", content: "" })
+        } else if (newMessage.type === "confirmation") {
+          updatedMessages.push({ ...newMessage, answer: undefined })
+          store.setChatState("waiting_user_response")
+        } else {
+          updatedMessages.push({ ...newMessage })
+          store.setChatState("waiting_backend_response")
+          store.addMessage({ type: "loading", content: "" })
+        }
+
+        set({ messages: updatedMessages })
+      })
 
       store.setChatState("idle")
     } catch (error) {
@@ -132,13 +70,29 @@ export const createMessagesSlice = (set, get) => ({
     }
   },
 
-  handleConfirmation: async (confirmed) => {
+  handleConfirmation: async (approved) => {
     const store = get()
-    store.setChatState("waiting_backend_response")
+    const confirmationIndex = store.messages.length - 1
+
+    store.setChatState("waiting_user_response")
 
     try {
-      await window.api.handleConfirmation(confirmed)
-      store.setChatState("idle")
+      if (approved) {
+        store.setMessage(confirmationIndex, {
+          ...store.messages[confirmationIndex],
+          answer: true
+        })
+        store.setChatState("waiting_backend_response")
+        store.addMessage({ type: "loading", content: "" })
+        await window.api.handleConfirmation(true)
+      } else {
+        store.setMessage(confirmationIndex, {
+          ...store.messages[confirmationIndex],
+          answer: false
+        })
+        await window.api.handleConfirmation(false)
+        store.setChatState("idle")
+      }
     } catch (error) {
       console.error("Confirmation failed:", error)
       store.setChatState("idle")

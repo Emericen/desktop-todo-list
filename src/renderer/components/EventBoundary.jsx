@@ -17,8 +17,8 @@ class EventBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // Log error details
-    console.error('EventBoundary caught an error:', error, errorInfo)
-    
+    console.error("EventBoundary caught an error:", error, errorInfo)
+
     // Update state with error details
     this.setState({
       error: error,
@@ -26,7 +26,7 @@ class EventBoundary extends React.Component {
     })
 
     // Log error to console (could be enhanced with external service)
-    console.error('UI Error:', {
+    console.error("UI Error:", {
       error: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
@@ -34,9 +34,9 @@ class EventBoundary extends React.Component {
     })
 
     // Optional: send error to logging service
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       // Could send to error tracking service like Sentry
-      console.log('Would send error to logging service:', error)
+      console.log("Would send error to logging service:", error)
     }
   }
 
@@ -44,13 +44,15 @@ class EventBoundary extends React.Component {
     if (this.state.hasError) {
       // Custom fallback UI
       const { fallback: FallbackComponent } = this.props
-      
+
       if (FallbackComponent) {
         return (
-          <FallbackComponent 
+          <FallbackComponent
             error={this.state.error}
             errorInfo={this.state.errorInfo}
-            resetError={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+            resetError={() =>
+              this.setState({ hasError: false, error: null, errorInfo: null })
+            }
           />
         )
       }
@@ -62,15 +64,17 @@ class EventBoundary extends React.Component {
             Something went wrong
           </h2>
           <p className="text-red-600 mb-4 text-center">
-            {this.state.error?.message || 'An unexpected error occurred'}
+            {this.state.error?.message || "An unexpected error occurred"}
           </p>
           <button
-            onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+            onClick={() =>
+              this.setState({ hasError: false, error: null, errorInfo: null })
+            }
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
           >
             Try Again
           </button>
-          {process.env.NODE_ENV === 'development' && (
+          {process.env.NODE_ENV === "development" && (
             <details className="mt-4 text-sm">
               <summary className="cursor-pointer text-red-700 font-medium">
                 Error Details (Development)

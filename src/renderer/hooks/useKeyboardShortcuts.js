@@ -6,8 +6,7 @@ import useStore from "../store/useStore.js"
  * Encapsulates all app-wide keyboard shortcuts in one place
  */
 export const useKeyboardShortcuts = () => {
-  const toggleDictation = useStore(s => s.toggleDictation)
-  const clearMessages = useStore(s => s.clearMessages)
+  const toggleDictation = useStore((s) => s.toggleDictation)
 
   // Handle Alt+\ for dictation toggle
   useEffect(() => {
@@ -38,7 +37,7 @@ export const useKeyboardShortcuts = () => {
         action: "approve"
       },
       {
-        key: "Delete/Backspace", 
+        key: "Delete/Backspace",
         description: "Reject confirmation (when awaiting response)",
         action: "reject"
       }

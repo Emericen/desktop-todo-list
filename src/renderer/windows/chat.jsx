@@ -1,11 +1,9 @@
-import { useEffect, useCallback, useRef } from "react"
+import { useEffect } from "react"
 import QueryBar from "@/components/QueryBar"
 import ChatArea from "@/components/ChatArea"
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts.js"
 
 export default function ChatWindow() {
-  const bottomRef = useRef(null)
-
   // Use custom hooks
   useKeyboardShortcuts()
 
@@ -20,15 +18,6 @@ export default function ChatWindow() {
     return () => mql.removeEventListener("change", apply)
   }, [])
 
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [])
-
-  // Note: messages now come from ChatArea's useChat hook
-  useEffect(() => {
-    requestAnimationFrame(scrollToBottom)
-  }, [scrollToBottom])
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div
@@ -38,7 +27,7 @@ export default function ChatWindow() {
         Show / Hide (Alt + P)
       </div>
 
-      <ChatArea bottomRef={bottomRef} />
+      <ChatArea />
       <QueryBar />
       <div className="h-24" />
     </div>
