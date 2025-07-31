@@ -72,9 +72,9 @@ export function createChatWindow(userSettings = null) {
   if (userSettings?.get("window.autoHide") ?? true) {
     chatWindow.on("blur", () => {
       // Only hide if window is currently visible
-      // if (chatWindow?.isVisible()) {
-      //   hideChatWindow()
-      // }
+      if (chatWindow?.isVisible()) {
+        hideChatWindow()
+      }
     })
   }
 

@@ -28,19 +28,20 @@ export const createMessagesSlice = (set, get) => ({
 
     const store = get()
     store.addMessage({ type: "user", content: query })
-    store.addMessage({ type: "loading", content: "" })
     store.setChatState("waiting_backend_response")
 
     try {
       // Direct API call
       await window.api.sendQuery({ query }, (newMessage) => {
-        const messages = get().messages
-        const updatedMessages = [...messages]
-        const lastIndex = updatedMessages.length - 1
+        const currentState = get()
+        let msgs = currentState.messages
 
-        if (updatedMessages[lastIndex]?.type === "loading") {
-          updatedMessages[lastIndex] = { ...newMessage }
+        // Remove trailing spinner before adding real content
+        if (msgs.length && msgs[msgs.length - 1].type === "loading") {
+          msgs = msgs.slice(0, -1)
         }
+        const updatedMessages = [...msgs]
+        const lastIndex = updatedMessages.length - 1
 
         if (
           updatedMessages[lastIndex]?.type === "text" &&
@@ -50,16 +51,18 @@ export const createMessagesSlice = (set, get) => ({
             ...updatedMessages[lastIndex],
             content: updatedMessages[lastIndex].content + newMessage.content
           }
-          store.addMessage({ type: "loading", content: "" })
         } else if (newMessage.type === "confirmation") {
           updatedMessages.push({ ...newMessage, answer: undefined })
           store.setChatState("waiting_user_response")
         } else {
           updatedMessages.push({ ...newMessage })
-          store.setChatState("waiting_backend_response")
-          store.addMessage({ type: "loading", content: "" })
         }
 
+        // If still waiting for backend, append spinner again
+        if (get().chatState === "waiting_backend_response") {
+          updatedMessages.push({ type: "loading", content: "" })
+        }
+        
         set({ messages: updatedMessages })
       })
 
@@ -78,14 +81,15 @@ export const createMessagesSlice = (set, get) => ({
 
     try {
       if (approved) {
+        console.log("APPROVED")
         store.setMessage(confirmationIndex, {
           ...store.messages[confirmationIndex],
           answer: true
         })
         store.setChatState("waiting_backend_response")
-        store.addMessage({ type: "loading", content: "" })
         await window.api.handleConfirmation(true)
       } else {
+        console.log("REJECTED")
         store.setMessage(confirmationIndex, {
           ...store.messages[confirmationIndex],
           answer: false
