@@ -47,6 +47,12 @@ export const useQueryBar = (textareaRef) => {
     )
   }, [dictationState, chatState, input])
 
+  const canDictate = useCallback(() => {
+    return (
+      dictationState === DICTATION_STATE.IDLE && chatState === CHAT_STATE.IDLE
+    )
+  }, [dictationState, chatState])
+
   const getDictationIconType = useCallback(() => {
     if (dictationState === DICTATION_STATE.LISTENING) return "mic-off"
     if (dictationState === DICTATION_STATE.TRANSCRIBING) return "loading"
@@ -60,9 +66,9 @@ export const useQueryBar = (textareaRef) => {
   }, [dictationState])
 
   const getDictationDisabled = useCallback(() => {
-    return (
-      chatState === CHAT_STATE.WAITING_USER_RESPONSE ||
-      dictationState === DICTATION_STATE.TRANSCRIBING
+    // Disable mic button whenever either chat or dictation is not idle
+    return !(
+      chatState === CHAT_STATE.IDLE && dictationState === DICTATION_STATE.IDLE
     )
   }, [chatState, dictationState])
 

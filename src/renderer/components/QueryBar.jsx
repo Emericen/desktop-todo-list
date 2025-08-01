@@ -25,6 +25,7 @@ export default function QueryBar() {
     dictationVariant,
     dictationTooltipText,
     dictationDisabled,
+
     handleKeyDown,
     handleDictation,
     handleSubmit
