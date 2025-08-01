@@ -52,7 +52,7 @@ export const createMessagesSlice = (set, get) => ({
             content: updatedMessages[lastIndex].content + newMessage.content
           }
         } else if (newMessage.type === "confirmation") {
-          updatedMessages.push({ ...newMessage, answer: undefined })
+          updatedMessages.push({ ...newMessage, answer: null })
           store.setChatState("waiting_user_response")
         } else {
           updatedMessages.push({ ...newMessage })
@@ -84,7 +84,7 @@ export const createMessagesSlice = (set, get) => ({
         console.log("APPROVED")
         store.setMessage(confirmationIndex, {
           ...store.messages[confirmationIndex],
-          answer: true
+          answer: "approved"
         })
         store.setChatState("waiting_backend_response")
         await window.api.handleConfirmation(true)
@@ -92,7 +92,7 @@ export const createMessagesSlice = (set, get) => ({
         console.log("REJECTED")
         store.setMessage(confirmationIndex, {
           ...store.messages[confirmationIndex],
-          answer: false
+          answer: "rejected"
         })
         await window.api.handleConfirmation(false)
         store.setChatState("idle")

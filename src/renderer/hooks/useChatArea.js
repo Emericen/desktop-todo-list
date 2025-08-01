@@ -23,13 +23,13 @@ export const useChatArea = () => {
     const handleKeyDown = (e) => {
       // Find active confirmation (not answered)
       const activeConfirmation = messages.find(
-        (msg, index) => msg.type === "confirmation" && !msg.answered
+        (msg, index) => msg.type === "confirmation" && msg.answer === null
       )
 
       if (!activeConfirmation) return
 
       const activeIndex = messages.findIndex(
-        (msg, index) => msg.type === "confirmation" && !msg.answered
+        (msg, index) => msg.type === "confirmation" && msg.answer === null
       )
 
       if (e.key === "Enter" && !e.shiftKey) {
