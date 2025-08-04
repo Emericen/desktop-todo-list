@@ -71,15 +71,30 @@ export function TextMessage({ message }) {
 
 export function TerminalMessage({ message, onConfirm, onCancel }) {
   const [displayResult, setDisplayResult] = useState(message.result || null)
-  const [isExecuted, setIsExecuted] = useState(message.executed || false)
+  const [isExecuted, setIsExecuted] = useState(
+    message.executed || message.answer !== null || false
+  )
 
-  // Update display result when message changes
+  // Update when backend returns result or answer field changes
   useEffect(() => {
     if (message.result) {
       setDisplayResult(message.result)
       setIsExecuted(true)
     }
   }, [message.result])
+
+  useEffect(() => {
+    if (message.answer !== null) {
+      setIsExecuted(true)
+      if (message.answer === "rejected") {
+        setDisplayResult({
+          success: false,
+          error: "Command cancelled",
+          executionTime: 0
+        })
+      }
+    }
+  }, [message.answer])
 
   const handleConfirm = () => {
     setIsExecuted(true)

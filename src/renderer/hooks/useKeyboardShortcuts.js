@@ -17,8 +17,8 @@ export const useKeyboardShortcuts = () => {
         e.preventDefault()
         const { chatState, dictationState } = useStore.getState()
         if (
-          chatState === CHAT_STATE.IDLE &&
-          dictationState === DICTATION_STATE.IDLE
+          (dictationState === DICTATION_STATE.IDLE && chatState === CHAT_STATE.IDLE) ||
+          dictationState === DICTATION_STATE.LISTENING
         ) {
           toggleDictation()
         }

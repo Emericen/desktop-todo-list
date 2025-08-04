@@ -64,8 +64,8 @@ class SlashCommandHandler {
       case '/help':
         return this.handleHelp(pushEvent)
 
-      case '/settings':
-        return this.handleSettings(pushEvent)
+      // case '/settings':
+      //   return this.handleSettings(pushEvent)
 
       default:
         pushEvent({ type: "error", content: `Unknown command: ${command}` })
@@ -130,7 +130,7 @@ class SlashCommandHandler {
       lines.push("Additional commands:")
       lines.push("`/help` – show this message")
       lines.push("`/clear` – clear chat history")
-      lines.push("`/settings` – view and modify app settings")
+      // lines.push("`/settings` – view and modify app settings")
       
       if (this.authClient.isAuthenticated()) {
         lines.push("`/logout` – sign out of your account.")

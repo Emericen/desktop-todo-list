@@ -21,15 +21,19 @@ export const useChatArea = () => {
   // Set up keyboard shortcuts for active confirmations
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Find active confirmation (not answered)
+      // Find active confirmation or pending bash command
       const activeConfirmation = messages.find(
-        (msg, index) => msg.type === "confirmation" && msg.answer === null
+        (msg) =>
+          (msg.type === "confirmation" && msg.answer === null) ||
+          (msg.type === "bash" && msg.answer === null)
       )
 
       if (!activeConfirmation) return
 
       const activeIndex = messages.findIndex(
-        (msg, index) => msg.type === "confirmation" && msg.answer === null
+        (msg) =>
+          (msg.type === "confirmation" && msg.answer === null) ||
+          (msg.type === "bash" && msg.answer === null)
       )
 
       if (e.key === "Enter" && !e.shiftKey) {

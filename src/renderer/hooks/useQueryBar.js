@@ -66,9 +66,10 @@ export const useQueryBar = (textareaRef) => {
   }, [dictationState])
 
   const getDictationDisabled = useCallback(() => {
-    // Disable mic button whenever either chat or dictation is not idle
-    return !(
-      chatState === CHAT_STATE.IDLE && dictationState === DICTATION_STATE.IDLE
+    // Disable when transcribing or when chat is busy and dictation is idle
+    return (
+      dictationState === DICTATION_STATE.TRANSCRIBING ||
+      (dictationState === DICTATION_STATE.IDLE && chatState !== CHAT_STATE.IDLE)
     )
   }, [chatState, dictationState])
 

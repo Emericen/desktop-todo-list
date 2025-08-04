@@ -54,6 +54,35 @@ export const createMessagesSlice = (set, get) => ({
         } else if (newMessage.type === "confirmation") {
           updatedMessages.push({ ...newMessage, answer: null })
           store.setChatState("waiting_user_response")
+        } else if (newMessage.type === "bash") {
+          // Two phases for bash tool: awaiting confirmation and result delivery
+          if (newMessage.result !== undefined) {
+            console.log("RESULT DELIVERY")
+            // Merge result into the last bash awaiting result
+            const mergeIndex = [...updatedMessages]
+              .reverse()
+              .findIndex(
+                (m) =>
+                  m.type === "bash" &&
+                  m.answer === "approved" &&
+                  m.result == null
+              )
+            if (mergeIndex !== -1) {
+              const targetIdx = updatedMessages.length - 1 - mergeIndex
+              updatedMessages[targetIdx] = {
+                ...updatedMessages[targetIdx],
+                result: newMessage.result
+              }
+            } else {
+              updatedMessages.push(newMessage)
+            }
+            store.setChatState("waiting_backend_response")
+          } else {
+            // Initial command (needs user confirmation)
+            console.log("INITIAL COMMAND")
+            updatedMessages.push({ ...newMessage, answer: null, result: null })
+            store.setChatState("waiting_user_response")
+          }
         } else {
           updatedMessages.push({ ...newMessage })
         }
@@ -62,7 +91,7 @@ export const createMessagesSlice = (set, get) => ({
         if (get().chatState === "waiting_backend_response") {
           updatedMessages.push({ type: "loading", content: "" })
         }
-        
+
         set({ messages: updatedMessages })
       })
 
@@ -76,8 +105,6 @@ export const createMessagesSlice = (set, get) => ({
   handleConfirmation: async (approved) => {
     const store = get()
     const confirmationIndex = store.messages.length - 1
-
-    store.setChatState("waiting_user_response")
 
     try {
       if (approved) {
