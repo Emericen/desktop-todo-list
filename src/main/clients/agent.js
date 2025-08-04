@@ -297,7 +297,8 @@ export default class Agent {
     this.ioClient = new IOClient()
 
     // Use hardcoded backend URL
-    this.platformBaseUrl = "https://www.uiassistant.io" // TODO: Replace with your actual backend URL
+    // this.platformBaseUrl = "https://www.uiassistant.io"
+    this.platformBaseUrl = "http://localhost:3000"
 
     this.system = system.trim()
 
@@ -306,9 +307,6 @@ export default class Agent {
 
     // For handling confirmation responses
     this.pendingConfirmation = null
-
-    // Platform configuration for auth
-    this.platformUrl = "https://www.uiassistant.io"
   }
 
   async query(query, pushEvent) {
@@ -342,29 +340,42 @@ export default class Agent {
       })
 
       if (!httpResponse.ok) {
-        throw new Error(`Platform API error: ${httpResponse.status}`)
+        try {
+          const rawResponse = await httpResponse.text()
+          const response = JSON.parse(rawResponse)
+          if (response.message) {
+            pushEvent({
+              type: "text",
+              content: response.message
+            })
+          } else {
+            pushEvent({
+              type: "text",
+              content: `Platform API error ${httpResponse.status}: ${rawResponse}`
+            })
+          }
+        } catch (e) {
+          pushEvent({
+            type: "text",
+            content: `Platform API error ${httpResponse.status}: ${rawResponse}`
+          })
+        }
+        return { success: true }
       }
 
       // Platform returns the same format as Anthropic API
       const response = await httpResponse.json()
-      console.log(`[${step}] Response received from Anthropic`)
       this.messages.push({ role: "assistant", content: response.content })
 
       let toolStep = 0
       let hadToolUse = false
       for (const content of response.content) {
         if (content.type === "text") {
-          console.log(
-            `[${step}] [${toolStep}] Detected text content: ${content.text}`
-          )
           pushEvent({ type: "text", content: content.text })
         } else if (content.type === "tool_use") {
           hadToolUse = true // Mark that we had tool use in this response
           switch (content.name) {
             case "bash": {
-              console.log(
-                `[${step}] [${toolStep}] Detected bash tool: ${content.input.command}`
-              )
               pushEvent({ type: "bash", content: content.input.command })
 
               // Wait for user confirmation via frontend
@@ -399,8 +410,6 @@ export default class Agent {
                     }
                   ]
                 })
-
-                console.log(`[${step}] [${toolStep}] Bash command executed`)
               } else {
                 // User cancelled – send a dummy tool_result so protocol stays consistent
                 pushEvent({ type: "text", content: "Command cancelled." })
@@ -414,16 +423,12 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(`[${step}] [${toolStep}] Bash command cancelled`)
                 // Break out of conversation loop when cancelled
                 return { success: true }
               }
               break
             }
             case "terminal_interrupt": {
-              console.log(
-                `[${step}] [${toolStep}] Terminal interrupt tool used`
-              )
               pushEvent({ type: "bash", content: "ctrl+c" })
               const confirmed = await new Promise((resolve) => {
                 this.pendingConfirmation = resolve
@@ -460,7 +465,6 @@ export default class Agent {
               break
             }
             case "terminal_next": {
-              console.log(`[${step}] [${toolStep}] Terminal next tool used`)
               const output = this.terminal.getOutput()
               if (output.trim()) {
                 pushEvent({
@@ -493,9 +497,6 @@ export default class Agent {
               break
             }
             case "terminal_send_interactive_input": {
-              console.log(
-                `[${step}] [${toolStep}] Terminal send interactive input tool used`
-              )
               const input = content.input.input
               await this.terminal.sendInteractiveInput(input)
               this.messages.push({
@@ -511,7 +512,6 @@ export default class Agent {
               break
             }
             case "screenshot": {
-              console.log(`[${step}] [${toolStep}] Screenshot tool used`)
               pushEvent({
                 type: "text",
                 content: "\n\n*👀 Taking a look...*\n\n"
@@ -537,11 +537,9 @@ export default class Agent {
                   }
                 ]
               })
-              console.log(`[${step}] [${toolStep}] Tool result pushed`)
               break
             }
             case "left_click": {
-              console.log(`[${step}] [${toolStep}] Left click tool used`)
               const x = content.input.x
               const y = content.input.y
               const leftClickAnnotation =
@@ -584,13 +582,9 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(
-                  `[${step}] [${toolStep}] Left click tool result pushed`
-                )
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
-                console.log(`[${step}] [${toolStep}] Left click tool cancelled`)
                 this.messages.push({
                   role: "user",
                   content: [
@@ -606,7 +600,6 @@ export default class Agent {
               break
             }
             case "right_click": {
-              console.log(`[${step}] [${toolStep}] Right click tool used`)
               const x = content.input.x
               const y = content.input.y
               const rightClickAnnotation =
@@ -649,15 +642,9 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(
-                  `[${step}] [${toolStep}] Right click tool result pushed`
-                )
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
-                console.log(
-                  `[${step}] [${toolStep}] Right click tool cancelled`
-                )
                 this.messages.push({
                   role: "user",
                   content: [
@@ -673,7 +660,6 @@ export default class Agent {
               break
             }
             case "double_click": {
-              console.log(`[${step}] [${toolStep}] Double click tool used`)
               const x = content.input.x
               const y = content.input.y
               const doubleClickAnnotation =
@@ -716,15 +702,9 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(
-                  `[${step}] [${toolStep}] Double click tool result pushed`
-                )
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
-                console.log(
-                  `[${step}] [${toolStep}] Double click tool cancelled`
-                )
                 this.messages.push({
                   role: "user",
                   content: [
@@ -740,7 +720,6 @@ export default class Agent {
               break
             }
             case "drag": {
-              console.log(`[${step}] [${toolStep}] Drag tool used`)
               const x1 = content.input.x1
               const y1 = content.input.y1
               const x2 = content.input.x2
@@ -789,11 +768,9 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(`[${step}] [${toolStep}] Drag tool result pushed`)
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
-                console.log(`[${step}] [${toolStep}] Drag tool cancelled`)
                 this.messages.push({
                   role: "user",
                   content: [
@@ -809,7 +786,6 @@ export default class Agent {
               break
             }
             case "scroll": {
-              console.log(`[${step}] [${toolStep}] Scroll tool used`)
               const pixels = content.input.pixels
               const x = content.input.x
               const y = content.input.y
@@ -856,11 +832,9 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(`[${step}] [${toolStep}] Scroll tool result pushed`)
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
-                console.log(`[${step}] [${toolStep}] Scroll tool cancelled`)
                 this.messages.push({
                   role: "user",
                   content: [
@@ -876,7 +850,6 @@ export default class Agent {
               break
             }
             case "type": {
-              console.log(`[${step}] [${toolStep}] Type tool used`)
               const x = content.input.x
               const y = content.input.y
               const text = content.input.text
@@ -927,11 +900,9 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(`[${step}] [${toolStep}] Type tool result pushed`)
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Action cancelled." })
-                console.log(`[${step}] [${toolStep}] Type tool cancelled`)
                 this.messages.push({
                   role: "user",
                   content: [
@@ -947,7 +918,6 @@ export default class Agent {
               break
             }
             case "keyboard_hotkey": {
-              console.log(`[${step}] [${toolStep}] Keyboard hotkey tool used`)
               const keys = content.input.keys
               pushEvent({
                 type: "confirmation",
@@ -984,15 +954,9 @@ export default class Agent {
                     }
                   ]
                 })
-                console.log(
-                  `[${step}] [${toolStep}] Keyboard hotkey tool result pushed`
-                )
               } else {
                 // User cancelled - just break out of query
                 pushEvent({ type: "text", content: "Hotkey cancelled." })
-                console.log(
-                  `[${step}] [${toolStep}] Keyboard hotkey tool cancelled`
-                )
                 this.messages.push({
                   role: "user",
                   content: [

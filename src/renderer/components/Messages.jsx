@@ -56,6 +56,20 @@ export function TextMessage({ message }) {
               {children}
             </code>
           ),
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              className="text-blue-600 underline"
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => {
+                e.preventDefault()
+                window.open(href, "_blank")
+              }}
+            >
+              {children}
+            </a>
+          ),
           pre: ({ children }) => (
             <pre className="bg-muted p-3 rounded mb-4 overflow-x-auto text-foreground font-mono">
               {children}

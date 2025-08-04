@@ -60,6 +60,19 @@ export function createChatWindow(userSettings = null) {
   })
 
   chatWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  // Open external links in the user's default browser instead of new Electron windows
+  const { shell } = require("electron")
+  chatWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: "deny" }
+  })
+  chatWindow.webContents.on("will-navigate", (e, url) => {
+    if (url !== chatWindow.webContents.getURL()) {
+      e.preventDefault()
+      shell.openExternal(url)
+    }
+  })
   chatWindow.setAlwaysOnTop(true, "screen-saver", 1)
   chatWindow.setContentProtection(false)
 

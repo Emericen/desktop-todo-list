@@ -247,6 +247,7 @@ export default class IOClient {
     await mouse.leftClick()
     await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     await keyboard.type(text)
+    await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     showChatWindow()
   }
 

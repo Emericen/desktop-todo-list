@@ -1,4 +1,7 @@
 import { showChatWindow } from "../windows/chat.js"
+import UserSettings from "./userSettings.js"
+
+const DAILY_QUERY_LIMIT = 10
 
 /**
  * Query Orchestrator - Handles the main query processing flow
@@ -11,6 +14,9 @@ class QueryOrchestrator {
     this.slashCommandHandler = null
     this.updateClient = null
     this.awaitingUpdateResponse = false
+
+    // Initialize user settings for tracking daily usage
+    this.userSettings = new UserSettings()
   }
 
   /**
@@ -55,17 +61,14 @@ class QueryOrchestrator {
   async processQuery(payload, pushEvent, event) {
     // Validate dependencies
     if (!this.authClient || !this.aiAgent || !this.slashCommandHandler) {
-      throw new Error('QueryOrchestrator: dependencies not set. Call setter methods first.')
+      throw new Error(
+        "QueryOrchestrator: dependencies not set. Call setter methods first."
+      )
     }
 
     try {
       // Enhanced pushEvent that ensures chat window visibility
-      const enhancedPushEvent = (eventData) => {
-        console.log(
-          "pushEvent:",
-          eventData.type,
-          eventData.content?.substring(0, 100)
-        )
+      const visiblePushEvent = (eventData) => {
         // Ensure chat window is visible for every event so the user can see agent progress
         showChatWindow()
         pushEvent(eventData)
@@ -73,13 +76,19 @@ class QueryOrchestrator {
 
       // Check if it's a slash command
       if (this.slashCommandHandler.isSlashCommand(payload.query)) {
-        const result = await this.slashCommandHandler.handleCommand(payload.query, enhancedPushEvent)
+        const result = await this.slashCommandHandler.handleCommand(
+          payload.query,
+          visiblePushEvent
+        )
         return result
       }
 
       // Handle update response if awaiting one
       if (this.awaitingUpdateResponse && this.updateClient) {
-        const handled = await this.updateClient.handleUpdateResponse(payload.query, enhancedPushEvent)
+        const handled = await this.updateClient.handleUpdateResponse(
+          payload.query,
+          visiblePushEvent
+        )
         if (handled) {
           this.awaitingUpdateResponse = false
           event.sender.send("focus-query-input")
@@ -89,16 +98,38 @@ class QueryOrchestrator {
 
       // Handle authentication flow
       if (!this.authClient.isAuthenticated()) {
-        await this.authClient.handle(payload.query, enhancedPushEvent)
+        await this.authClient.handle(payload.query, visiblePushEvent)
         event.sender.send("focus-query-input")
         return { success: true }
       }
 
+      // Daily query limit check
+      {
+        const today = new Date().toISOString().split("T")[0]
+        let usage = this.userSettings.get("usage") || {}
+        if (usage.date !== today) {
+          usage = { date: today, count: 0 }
+        }
+        if (usage.count >= DAILY_QUERY_LIMIT) {
+          visiblePushEvent({
+            type: "text",
+            content: `Daily limit of ${DAILY_QUERY_LIMIT} queries reached. Please try again tomorrow.\n\nNeed more? Ping Eddy Liang on [Discord](https://discord.gg/sBNnqP9gaY) to discuss a premium plan.`
+          })
+          event.sender.send("focus-query-input")
+          return { success: false, error: "Daily limit reached" }
+        }
+        usage.count = (usage.count || 0) + 1
+        const remaining = DAILY_QUERY_LIMIT - usage.count
+        console.log(
+          `Query used: ${usage.count}/${DAILY_QUERY_LIMIT} (${remaining} left today)`
+        )
+        this.userSettings.set("usage", usage)
+      }
+
       // Process query with AI agent
-      const result = await this.aiAgent.query(payload.query, enhancedPushEvent)
+      const result = await this.aiAgent.query(payload.query, visiblePushEvent)
       event.sender.send("focus-query-input")
       return result
-
     } catch (error) {
       return this.handleQueryError(error, pushEvent, event)
     }
@@ -113,21 +144,19 @@ class QueryOrchestrator {
    */
   handleQueryError(error, pushEvent, event) {
     console.error("aiAgent.query error:", error)
-    
+
     pushEvent({
       type: "error",
-      content: `Error: ${
-        error.message || error
-      }. Conversation has been reset.`
+      content: `Error: ${error.message || error}. Conversation has been reset.`
     })
 
     // Reset backend conversation state so next turn starts fresh
     this.aiAgent.messages = []
-    
+
     // Instruct renderer to clear its chat as well
     event.sender.send("clear-messages")
     event.sender.send("focus-query-input")
-    
+
     return { success: false, error: error.message || String(error) }
   }
 
@@ -138,7 +167,7 @@ class QueryOrchestrator {
    */
   handleConfirmation(confirmed) {
     if (!this.aiAgent) {
-      return { success: false, error: 'QueryOrchestrator: aiAgent not set' }
+      return { success: false, error: "QueryOrchestrator: aiAgent not set" }
     }
 
     try {
@@ -157,18 +186,18 @@ class QueryOrchestrator {
    */
   clearMessages(event) {
     if (!this.aiAgent) {
-      return { success: false, error: 'QueryOrchestrator: aiAgent not set' }
+      return { success: false, error: "QueryOrchestrator: aiAgent not set" }
     }
 
     try {
       this.aiAgent.messages = []
-      
+
       // Notify all renderers to clear their local store just in case
-      const { BrowserWindow } = require('electron')
+      const { BrowserWindow } = require("electron")
       BrowserWindow.getAllWindows().forEach((win) =>
         win.webContents.send("clear-messages")
       )
-      
+
       return { success: true }
     } catch (error) {
       console.error("Clear messages error:", error)
