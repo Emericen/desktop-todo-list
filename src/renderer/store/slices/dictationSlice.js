@@ -1,26 +1,25 @@
-import { apiService } from "../../services/apiService.js"
+// Direct API calls instead of service layer
 
-/**
- * Transcription Store Slice
- * Handles all audio recording and transcription logic
- */
-export const createTranscriptionSlice = (set, get) => ({
+const DICTATION_STATE = {
+  IDLE: "idle",
+  LISTENING: "listening",
+  TRANSCRIBING: "transcribing"
+}
+
+export const createDictationSlice = (set, get) => ({
   // State
-  isTranscribing: false,
-  isProcessingAudio: false,
+  dictationState: DICTATION_STATE.IDLE,
   mediaRecorder: null,
   audioChunks: [],
-  transcriptionCallback: null,
+  dictationCallback: null,
 
   // Actions
-  setIsTranscribing: (val) => set({ isTranscribing: val }),
-  setIsProcessingAudio: (val) => set({ isProcessingAudio: val }),
-  setTranscriptionCallback: (callback) =>
-    set({ transcriptionCallback: callback }),
+  setDictationState: (state) => set({ dictationState: state }),
+  setDictationCallback: (callback) => set({ dictationCallback: callback }),
 
   // Complex transcription actions
-  startTranscription: async () => {
-    set({ isTranscribing: true, isProcessingAudio: false })
+  startDictation: async () => {
+    set({ dictationState: DICTATION_STATE.LISTENING })
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -35,7 +34,7 @@ export const createTranscriptionSlice = (set, get) => ({
       }
 
       mediaRecorder.onstop = async () => {
-        const { audioChunks, transcriptionCallback } = get()
+        const { audioChunks, dictationCallback } = get()
         const audioBlob = new Blob(audioChunks, { type: "audio/webm" })
 
         // Convert to base64 using browser FileReader API
@@ -48,16 +47,16 @@ export const createTranscriptionSlice = (set, get) => ({
         // Send to main process for transcription
         try {
           // Flag while waiting response
-          set({ isProcessingAudio: true })
-          const result = await apiService.transcribeAudio({
+          set({ dictationState: DICTATION_STATE.TRANSCRIBING })
+          const result = await window.api.transcribeAudio({
             audio: base64Audio,
             filename: "recording.webm"
           })
 
           if (result.success) {
             // Call the callback if provided
-            if (transcriptionCallback) {
-              transcriptionCallback(result.text.trim())
+            if (dictationCallback) {
+              dictationCallback(result.text.trim())
             }
           } else {
             console.error("Transcription failed:", result.error)
@@ -69,8 +68,7 @@ export const createTranscriptionSlice = (set, get) => ({
         // Clean up & reset flags
         stream.getTracks().forEach((track) => track.stop())
         set({
-          isTranscribing: false,
-          isProcessingAudio: false,
+          dictationState: DICTATION_STATE.IDLE,
           mediaRecorder: null,
           audioChunks: []
         })
@@ -79,27 +77,28 @@ export const createTranscriptionSlice = (set, get) => ({
       mediaRecorder.start()
     } catch (error) {
       console.error("Error accessing microphone:", error)
-      set({ isTranscribing: false })
+      set({ dictationState: DICTATION_STATE.IDLE })
     }
   },
 
-  stopTranscription: () => {
+  stopDictation: () => {
     const { mediaRecorder } = get()
     if (mediaRecorder && mediaRecorder.state === "recording") {
       // Immediately mark as stopped recording and processing started
-      set({ isTranscribing: false, isProcessingAudio: true })
+      set({ dictationState: DICTATION_STATE.TRANSCRIBING })
       mediaRecorder.stop()
     }
   },
 
-  toggleTranscription: async () => {
+  toggleDictation: async () => {
     const store = get()
-    if (store.isTranscribing) {
-      store.stopTranscription()
+    if (store.dictationState === DICTATION_STATE.LISTENING) {
+      store.stopDictation()
     } else {
-      await store.startTranscription()
+      await store.startDictation()
     }
   }
 })
 
-export default createTranscriptionSlice
+export { DICTATION_STATE }
+export default createDictationSlice

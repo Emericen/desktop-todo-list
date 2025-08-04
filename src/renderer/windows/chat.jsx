@@ -1,27 +1,11 @@
-import { useEffect, useCallback, useRef } from "react"
+import { useEffect } from "react"
 import QueryBar from "@/components/QueryBar"
-import useStore from "@/store/useStore"
+import ChatArea from "@/components/ChatArea"
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts.js"
-import {
-  UserMessage,
-  TextMessage,
-  ImageMessage,
-  TerminalMessage,
-  ErrorMessage,
-  ConfirmationMessage,
-  LoadingMessage
-} from "@/components/Messages"
 
 export default function ChatWindow() {
-  const messages = useStore((s) => s.messages)
-  const shortcut = "Alt+P"
-
-  const bottomRef = useRef(null)
-  
   // Use custom hooks
   useKeyboardShortcuts()
-
-  // no settings loading
 
   // Apply system theme and listen for changes
   useEffect(() => {
@@ -34,15 +18,6 @@ export default function ChatWindow() {
     return () => mql.removeEventListener("change", apply)
   }, [])
 
-
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [])
-
-  useEffect(() => {
-    requestAnimationFrame(scrollToBottom)
-  }, [messages, scrollToBottom])
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div
@@ -52,39 +27,7 @@ export default function ChatWindow() {
         Show / Hide (Alt + P)
       </div>
 
-      <div className="flex-1 pt-10">
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="space-y-6">
-              {messages.map((message, index) => {
-                switch (message.type) {
-                  case "user":
-                    return <UserMessage key={index} message={message} />
-                  case "image":
-                    return <ImageMessage key={index} message={message} />
-                  case "bash":
-                    return <TerminalMessage key={index} message={message} />
-                  case "error":
-                    return <ErrorMessage key={index} message={message} />
-                  case "loading":
-                    return <LoadingMessage key={index} />
-                  case "confirmation":
-                    return (
-                      <ConfirmationMessage
-                        key={index}
-                        message={message}
-                        index={index}
-                      />
-                    )
-                  default:
-                    return <TextMessage key={index} message={message} />
-                }
-              })}
-              <div ref={bottomRef} />
-            </div>
-          </div>
-        </div>
-      </div>
+      <ChatArea />
       <QueryBar />
       <div className="h-24" />
     </div>

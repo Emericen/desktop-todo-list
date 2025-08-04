@@ -1,12 +1,9 @@
 import { create } from "zustand"
-import { subscribeWithSelector } from 'zustand/middleware'
-import { apiService } from "../services/apiService.js"
+import { subscribeWithSelector } from "zustand/middleware"
 import { createMessagesSlice } from "./slices/messagesSlice.js"
-import { createTranscriptionSlice } from "./slices/transcriptionSlice.js"
+import { createDictationSlice } from "./slices/dictationSlice.js"
 import { createSettingsSlice } from "./slices/settingsSlice.js"
-import { createUISlice } from "./slices/uiSlice.js"
-// Initialize error service (this sets up global error handlers)
-import "../services/errorService.js"
+import { createChatSlice } from "./slices/chatSlice.js"
 
 // Global UI store (frontend-only)
 // Holds non-persistent app state such as theme, in-app shortcuts, chat messages, etc.
@@ -16,32 +13,12 @@ const useStore = create(
   subscribeWithSelector((set, get) => ({
     // Compose all slices
     ...createMessagesSlice(set, get),
-    ...createTranscriptionSlice(set, get),
+    ...createDictationSlice(set, get),
     ...createSettingsSlice(set, get),
-    ...createUISlice(set, get)
+    ...createChatSlice(set, get)
   }))
 )
 
-// Attach backend-push listener globally once store is defined
-if (typeof window !== "undefined") {
-  // Set up IPC listeners (this registers the actual IPC handlers)
-  apiService.onPush((payload) => {
-    console.log("payload", payload)
-    if (payload.type && payload.type === "image") {
-      const message = { ...payload }
-      useStore.getState().replaceLastImageMessage(message)
-    }
-  })
-  
-  // Also register the clear messages IPC listener
-  apiService.onClearMessages(() => {
-    // This will trigger the event bus event that components listen to
-  })
-
-  // Register focus input IPC listener  
-  apiService.onFocusQueryInput(() => {
-    // This will trigger the event bus event that components listen to
-  })
-}
+// Note: IPC handlers will be set up directly in slices as needed
 
 export default useStore

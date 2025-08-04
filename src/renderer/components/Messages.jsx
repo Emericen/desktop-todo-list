@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Check, X, Terminal, CornerDownLeft, Delete } from "lucide-react"
-import { useConfirmation, useTerminalConfirmation } from "../hooks/useConfirmation.js"
+import { Check, X, CornerDownLeft, Delete } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 
 export function UserMessage({ message }) {
@@ -70,17 +69,47 @@ export function TextMessage({ message }) {
   )
 }
 
-export function TerminalMessage({ message }) {
-  const { isExecuted, result, handleConfirm, handleCancel } = useTerminalConfirmation(message)
+export function TerminalMessage({ message, onConfirm, onCancel }) {
+  const [displayResult, setDisplayResult] = useState(message.result || null)
+  const [isExecuted, setIsExecuted] = useState(
+    message.executed || message.answer !== null || false
+  )
 
-  const [displayResult, setDisplayResult] = useState(result)
-
-  // Update display result when message changes
+  // Update when backend returns result or answer field changes
   useEffect(() => {
     if (message.result) {
       setDisplayResult(message.result)
+      setIsExecuted(true)
     }
   }, [message.result])
+
+  useEffect(() => {
+    if (message.answer !== null) {
+      setIsExecuted(true)
+      if (message.answer === "rejected") {
+        setDisplayResult({
+          success: false,
+          error: "Command cancelled",
+          executionTime: 0
+        })
+      }
+    }
+  }, [message.answer])
+
+  const handleConfirm = () => {
+    setIsExecuted(true)
+    if (onConfirm) onConfirm()
+  }
+
+  const handleCancel = () => {
+    setIsExecuted(true)
+    setDisplayResult({
+      success: false,
+      error: "Command cancelled",
+      executionTime: 0
+    })
+    if (onCancel) onCancel()
+  }
 
   return (
     <div className="w-full group">
@@ -89,7 +118,6 @@ export function TerminalMessage({ message }) {
           $ {message.content}
         </div>
         {!isExecuted ? (
-          // Before execution - show command with buttons
           <>
             <div className="flex justify-end gap-2">
               <Button
@@ -126,7 +154,6 @@ export function TerminalMessage({ message }) {
                     {displayResult.error}
                   </pre>
                 )}
-                {/* Status indicator */}
                 <div className="flex items-center gap-2 text-xs">
                   {displayResult.success ? (
                     <Check className="h-3 w-3 text-green-500" />
@@ -138,7 +165,9 @@ export function TerminalMessage({ message }) {
                       displayResult.success ? "text-green-400" : "text-red-400"
                     }
                   >
-                    {displayResult.success ? "Command completed" : "Command failed"}
+                    {displayResult.success
+                      ? "Command completed"
+                      : "Command failed"}
                   </span>
                   {displayResult.executionTime && (
                     <span className="text-gray-500">
@@ -182,31 +211,14 @@ export function ImageMessage({ message }) {
   )
 }
 
-export function ConfirmationMessage({ message, index }) {
-  const { handleApprove, handleReject } = useConfirmation(message, index)
-
-  // Add keyboard event listener
-  useEffect(() => {
-    if (message.answered) return
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        handleApprove()
-      } else if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault()
-        handleReject()
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [index, message.answered])
+export function ConfirmationMessage({ message, index, onApprove, onReject }) {
+  const handleApprove = onApprove
+  const handleReject = onReject
 
   return (
     <div
       className={`w-full ${
-        message.answered ? "opacity-50" : ""
+        message.answer ? "opacity-50" : ""
       } transition-opacity duration-200`}
     >
       <blockquote className="border-l-4 pl-4">
@@ -216,12 +228,12 @@ export function ConfirmationMessage({ message, index }) {
         <div className="flex justify-end gap-2 items-center">
           <div
             className={`flex items-center mr-2 w-4 ${
-              message.answered ? "visible" : "invisible"
+              message.answer ? "visible" : "invisible"
             }`}
           >
-            {message.answered === "approved" ? (
+            {message.answer === "approved" ? (
               <Check className="h-4 w-4 text-green-600" />
-            ) : message.answered === "rejected" ? (
+            ) : message.answer === "rejected" ? (
               <X className="h-4 w-4 text-red-600" />
             ) : (
               <div className="h-4 w-4" />
@@ -231,7 +243,7 @@ export function ConfirmationMessage({ message, index }) {
             size="sm"
             variant="ghost"
             onClick={handleReject}
-            disabled={message.answered !== null}
+            disabled={message.answer !== null}
             className="h-8 px-4"
           >
             NO
@@ -241,7 +253,7 @@ export function ConfirmationMessage({ message, index }) {
             size="sm"
             variant="default"
             onClick={handleApprove}
-            disabled={message.answered !== null}
+            disabled={message.answer !== null}
             className="h-8 px-4"
           >
             YES

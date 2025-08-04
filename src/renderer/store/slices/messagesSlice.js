@@ -1,6 +1,3 @@
-import { StreamingService } from "../../services/streamingService.js"
-import { MessageService } from "../../services/messageService.js"
-
 /**
  * Messages Store Slice
  * Handles all message-related state and actions
@@ -10,54 +7,127 @@ export const createMessagesSlice = (set, get) => ({
   messages: [],
 
   // Actions
-  addMessage: (message) =>
-    set((state) => ({
-      messages: [
-        ...state.messages,
-        MessageService.addConfirmationMessage(message)
-      ]
-    })),
-
-  replaceLastImageMessage: (message) =>
-    set((state) => ({
-      messages: MessageService.replaceOrAddImageMessage(state.messages, message)
-    })),
-
-  clearMessages: () => set({ messages: [] }),
-
-  selectChoice: (index, choice) =>
-    set((state) => ({
-      messages: MessageService.updateConfirmationChoice(state.messages, index, choice)
-    })),
-
-  // Complex actions that use services
-  submitQuery: async (rawQuery) => {
-    const store = get()
-    
-    await StreamingService.submitQuery(
-      rawQuery,
-      store.selectedModel,
-      store.addMessage,
-      (messages) => set({ messages }),
-      () => get().messages
-    )
+  addMessage: (message) => set({ messages: [...get().messages, message] }),
+  setMessage: (index, message) => {
+    const messages = get().messages
+    const updatedMessages = [...messages]
+    updatedMessages[index] = message
+    set({ messages: updatedMessages })
   },
 
-  handleConfirmation: async (index, choice) => {
+  // Direct API actions
+  handleSubmitQuery: async (rawQuery) => {
+    const query = rawQuery.trim()
+    if (!query) return
+
+    if (query === "/clear") {
+      set({ messages: [] })
+      await window.api.clearAgentMessages()
+      return
+    }
+
     const store = get()
-    
-    await StreamingService.handleConfirmation(
-      index,
-      choice,
-      (messages) => set({ messages }),
-      store.setAwaitingUserResponse,
-      () => get().messages
-    )
+    store.addMessage({ type: "user", content: query })
+    store.setChatState("waiting_backend_response")
+
+    try {
+      // Direct API call
+      await window.api.sendQuery({ query }, (newMessage) => {
+        const currentState = get()
+        let msgs = currentState.messages
+
+        // Remove trailing spinner before adding real content
+        if (msgs.length && msgs[msgs.length - 1].type === "loading") {
+          msgs = msgs.slice(0, -1)
+        }
+        const updatedMessages = [...msgs]
+        const lastIndex = updatedMessages.length - 1
+
+        if (
+          updatedMessages[lastIndex]?.type === "text" &&
+          newMessage.type === "text"
+        ) {
+          updatedMessages[lastIndex] = {
+            ...updatedMessages[lastIndex],
+            content: updatedMessages[lastIndex].content + newMessage.content
+          }
+        } else if (newMessage.type === "confirmation") {
+          updatedMessages.push({ ...newMessage, answer: null })
+          store.setChatState("waiting_user_response")
+        } else if (newMessage.type === "bash") {
+          // Two phases for bash tool: awaiting confirmation and result delivery
+          if (newMessage.result !== undefined) {
+            console.log("RESULT DELIVERY")
+            // Merge result into the last bash awaiting result
+            const mergeIndex = [...updatedMessages]
+              .reverse()
+              .findIndex(
+                (m) =>
+                  m.type === "bash" &&
+                  m.answer === "approved" &&
+                  m.result == null
+              )
+            if (mergeIndex !== -1) {
+              const targetIdx = updatedMessages.length - 1 - mergeIndex
+              updatedMessages[targetIdx] = {
+                ...updatedMessages[targetIdx],
+                result: newMessage.result
+              }
+            } else {
+              updatedMessages.push(newMessage)
+            }
+            store.setChatState("waiting_backend_response")
+          } else {
+            // Initial command (needs user confirmation)
+            console.log("INITIAL COMMAND")
+            updatedMessages.push({ ...newMessage, answer: null, result: null })
+            store.setChatState("waiting_user_response")
+          }
+        } else {
+          updatedMessages.push({ ...newMessage })
+        }
+
+        // If still waiting for backend, append spinner again
+        if (get().chatState === "waiting_backend_response") {
+          updatedMessages.push({ type: "loading", content: "" })
+        }
+
+        set({ messages: updatedMessages })
+      })
+
+      store.setChatState("idle")
+    } catch (error) {
+      console.error("Query failed:", error)
+      store.setChatState("idle")
+    }
   },
 
-  clearMessagesAndBackend: async () => {
+  handleConfirmation: async (approved) => {
     const store = get()
-    await StreamingService.clearMessages(store.clearMessages)
+    const confirmationIndex = store.messages.length - 1
+
+    try {
+      if (approved) {
+        console.log("APPROVED")
+        store.setMessage(confirmationIndex, {
+          ...store.messages[confirmationIndex],
+          answer: "approved"
+        })
+        store.setChatState("waiting_backend_response")
+        await window.api.handleConfirmation(true)
+      } else {
+        console.log("REJECTED")
+        store.setMessage(confirmationIndex, {
+          ...store.messages[confirmationIndex],
+          answer: "rejected"
+        })
+        await window.api.handleConfirmation(false)
+        store.setChatState("idle")
+      }
+    } catch (error) {
+      console.error("Confirmation failed:", error)
+      store.setChatState("idle")
+    }
   }
 })
 

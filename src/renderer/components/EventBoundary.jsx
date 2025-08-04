@@ -1,5 +1,4 @@
 import React from "react"
-import { eventBus } from "../services/eventBus.js"
 
 /**
  * Error Boundary component for catching and handling React errors
@@ -18,27 +17,26 @@ class EventBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // Log error details
-    console.error('EventBoundary caught an error:', error, errorInfo)
-    
+    console.error("EventBoundary caught an error:", error, errorInfo)
+
     // Update state with error details
     this.setState({
       error: error,
       errorInfo: errorInfo
     })
 
-    // Emit error event to the event bus
-    eventBus.emit('ui:error', {
+    // Log error to console (could be enhanced with external service)
+    console.error("UI Error:", {
       error: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
-      props: this.props
+      timestamp: new Date().toISOString()
     })
 
     // Optional: send error to logging service
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       // Could send to error tracking service like Sentry
-      console.log('Would send error to logging service:', error)
+      console.log("Would send error to logging service:", error)
     }
   }
 
@@ -46,13 +44,15 @@ class EventBoundary extends React.Component {
     if (this.state.hasError) {
       // Custom fallback UI
       const { fallback: FallbackComponent } = this.props
-      
+
       if (FallbackComponent) {
         return (
-          <FallbackComponent 
+          <FallbackComponent
             error={this.state.error}
             errorInfo={this.state.errorInfo}
-            resetError={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+            resetError={() =>
+              this.setState({ hasError: false, error: null, errorInfo: null })
+            }
           />
         )
       }
@@ -64,15 +64,17 @@ class EventBoundary extends React.Component {
             Something went wrong
           </h2>
           <p className="text-red-600 mb-4 text-center">
-            {this.state.error?.message || 'An unexpected error occurred'}
+            {this.state.error?.message || "An unexpected error occurred"}
           </p>
           <button
-            onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+            onClick={() =>
+              this.setState({ hasError: false, error: null, errorInfo: null })
+            }
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
           >
             Try Again
           </button>
-          {process.env.NODE_ENV === 'development' && (
+          {process.env.NODE_ENV === "development" && (
             <details className="mt-4 text-sm">
               <summary className="cursor-pointer text-red-700 font-medium">
                 Error Details (Development)
@@ -91,33 +93,6 @@ class EventBoundary extends React.Component {
   }
 }
 
-/**
- * Hook for listening to UI errors from the event bus
- * Useful for global error handling, logging, or notifications
- */
-export const useErrorHandler = () => {
-  const [errors, setErrors] = React.useState([])
-
-  React.useEffect(() => {
-    const cleanup = eventBus.on('ui:error', (errorData) => {
-      setErrors(prev => [...prev.slice(-9), errorData]) // Keep last 10 errors
-      
-      // Optional: Show notification or toast
-      console.warn('UI Error detected:', errorData)
-    })
-
-    return cleanup
-  }, [])
-
-  const clearErrors = React.useCallback(() => {
-    setErrors([])
-  }, [])
-
-  return {
-    errors,
-    clearErrors,
-    hasErrors: errors.length > 0
-  }
-}
+// Note: Error handling can be enhanced with external services like Sentry if needed
 
 export default EventBoundary

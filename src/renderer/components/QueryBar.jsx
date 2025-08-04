@@ -6,21 +6,30 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Mic, MicOff, Send, Loader2 } from "lucide-react"
-import useStore from "@/store/useStore"
-import { useTranscription } from "../hooks/useTranscription.js"
-import { useQueryInput } from "../hooks/useQueryInput.js"
+import { Send, Mic, MicOff, Loader2 } from "lucide-react"
+import { useQueryBar } from "../hooks/useQueryBar.js"
 
 export default function QueryBar() {
-  const awaitingUserResponse = useStore((s) => s.awaitingUserResponse)
   const textareaRef = useRef(null)
 
-  // Use custom hooks for logic
-  const { input, setInput, isSubmitting, handleSubmit, handleKeyDown } =
-    useQueryInput(textareaRef)
+  // Use single consolidated hook
+  const {
+    input,
+    setInput,
+    placeholder,
+    textAreaDisabled,
+    usingDictation,
+    showRecordingIndicator,
+    canSubmitQuery,
+    dictationIconType,
+    dictationVariant,
+    dictationTooltipText,
+    dictationDisabled,
 
-  const { isTranscribing, isProcessingAudio, handleTranscribe } =
-    useTranscription(textareaRef, setInput)
+    handleKeyDown,
+    handleDictation,
+    handleSubmit
+  } = useQueryBar(textareaRef)
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background p-4">
@@ -34,23 +43,11 @@ export default function QueryBar() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={
-                  isTranscribing
-                    ? "Listening..."
-                    : isProcessingAudio
-                    ? "Converting speech to text..."
-                    : awaitingUserResponse
-                    ? "Press Enter to confirm or Esc to cancel"
-                    : "What can I do for you? type `/help` for help"
-                }
+                placeholder={placeholder}
                 className={`w-full min-h-[24px] max-h-[150px] resize-none border-none outline-none bg-transparent text-left overflow-y-auto ${
-                  isTranscribing || isProcessingAudio
-                    ? "text-muted-foreground"
-                    : ""
+                  usingDictation ? "text-muted-foreground" : ""
                 }`}
-                disabled={
-                  awaitingUserResponse || isProcessingAudio || isTranscribing
-                }
+                disabled={textAreaDisabled}
                 spellCheck="false"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -78,29 +75,23 @@ export default function QueryBar() {
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
-                      variant={isTranscribing ? "destructive" : "ghost"}
                       size="sm"
                       className="h-7 w-7 p-0"
                       style={{ WebkitAppRegion: "no-drag" }}
-                      onClick={handleTranscribe}
-                      disabled={awaitingUserResponse || isProcessingAudio}
+                      variant={dictationVariant}
+                      onClick={handleDictation}
+                      disabled={dictationDisabled}
                     >
-                      {isTranscribing ? (
+                      {dictationIconType === "mic-off" ? (
                         <MicOff className="h-3.5 w-3.5" />
-                      ) : isProcessingAudio ? (
+                      ) : dictationIconType === "loading" ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Mic className="h-3.5 w-3.5" />
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    {isTranscribing
-                      ? "Stop (Alt+\\)"
-                      : isProcessingAudio
-                      ? "Processing"
-                      : "Dictate (Alt+\\)"}
-                  </TooltipContent>
+                  <TooltipContent>{dictationTooltipText}</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -111,13 +102,7 @@ export default function QueryBar() {
                       size="sm"
                       className="h-7 w-7 p-0 bg-primary hover:bg-primary/90"
                       style={{ WebkitAppRegion: "no-drag" }}
-                      disabled={
-                        isTranscribing ||
-                        isProcessingAudio ||
-                        !input.trim() ||
-                        awaitingUserResponse ||
-                        isSubmitting
-                      }
+                      disabled={!canSubmitQuery}
                     >
                       <Send className="h-3.5 w-3.5" />
                     </Button>
@@ -128,7 +113,7 @@ export default function QueryBar() {
             </div>
 
             {/* Recording indicator */}
-            {isTranscribing && (
+            {showRecordingIndicator && (
               <div className="absolute top-2 right-3 flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
                 <span className="text-xs text-red-500 font-medium">
