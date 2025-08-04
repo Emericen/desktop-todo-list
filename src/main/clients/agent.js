@@ -297,8 +297,8 @@ export default class Agent {
     this.ioClient = new IOClient()
 
     // Use hardcoded backend URL
-    // this.platformBaseUrl = "https://www.uiassistant.io"
-    this.platformBaseUrl = "http://localhost:3000"
+    this.platformBaseUrl = "https://www.lycheeassistant.com/"
+    // this.platformBaseUrl = "http://localhost:3000"
 
     this.system = system.trim()
 
