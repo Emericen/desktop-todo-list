@@ -44,7 +44,7 @@ export const createChatSlice = (set, get) => ({
     if (chatState === CHAT_STATE.WAITING_BACKEND_RESPONSE)
       return "Processing..."
     if (chatState === CHAT_STATE.WAITING_USER_RESPONSE)
-      return "Press Enter to confirm or Esc to cancel"
+      return "Press Enter to confirm or Backspace to cancel"
 
     return "What can I do for you? type `/help` for help"
   }
