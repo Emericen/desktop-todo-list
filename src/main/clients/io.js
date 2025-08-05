@@ -350,4 +350,15 @@ export default class IOClient {
     await new Promise((resolve) => setTimeout(resolve, this.mouseDelay))
     showChatWindow()
   }
+
+  async runFirstTimeOnboarding() {
+    console.log("running first time onboarding")
+    await this.takeScreenshot()
+    const { x, y } = await mouse.getPosition()
+    await mouse.move({ x: x + 1, y: y })
+    await mouse.move({ x: x - 1, y: y })
+    await keyboard.pressKey(Key.Shift)
+    await keyboard.releaseKey(Key.Shift)
+    console.log("first time onboarding complete")
+  }
 }

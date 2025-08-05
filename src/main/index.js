@@ -1,6 +1,6 @@
 import { app, BrowserWindow, nativeImage } from "electron"
 import { electronApp, optimizer } from "@electron-toolkit/utils"
-import path from "path"
+// import path from "path"
 import {
   createChatWindow,
   showChatWindow,
@@ -10,8 +10,9 @@ import { createSystemTray, destroyTray } from "./windows/tray.js"
 import OpenAIClient from "./clients/openai.js"
 import { registerFromSettings, unregisterAllShortcuts } from "./shortcuts.js"
 import Agent from "./clients/agent.js"
+import IOClient from "./clients/io.js"
 import AuthClient from "./clients/auth.js"
-import UpdateClient from "./clients/update.js"
+// import UpdateClient from "./clients/update.js"
 import SlashCommandHandler from "./services/slashCommandHandler.js"
 import QueryOrchestrator from "./services/queryOrchestrator.js"
 import IPCHandlers from "./services/ipcHandlers.js"
@@ -34,8 +35,9 @@ app.whenReady().then(async () => {
   const userSettings = new UserSettings()
   const authClient = new AuthClient()
   const aiAgent = new Agent() // Anthropic Claude integration
+  const ioClient = new IOClient()
   const openaiClient = new OpenAIClient() // Whisper transcription
-  const updateClient = new UpdateClient() // Auto-updater with user consent
+  // const updateClient = new UpdateClient() // Auto-updater with user consent
   await authClient.loadStoredSession()
 
   // Initialize business logic layer
@@ -52,12 +54,12 @@ app.whenReady().then(async () => {
   queryOrchestrator.setAuthClient(authClient)
   queryOrchestrator.setAIAgent(aiAgent)
   queryOrchestrator.setSlashCommandHandler(slashCommandHandler)
-  queryOrchestrator.setUpdateClient(updateClient)
+  // queryOrchestrator.setUpdateClient(updateClient)
 
   // Set callback for update responses
-  updateClient.setAwaitingResponseCallback((waiting) => {
-    queryOrchestrator.awaitingUpdateResponse = waiting
-  })
+  // updateClient.setAwaitingResponseCallback((waiting) => {
+  //   queryOrchestrator.awaitingUpdateResponse = waiting
+  // })
 
   ipcHandlers.setQueryOrchestrator(queryOrchestrator)
   ipcHandlers.setOpenAIClient(openaiClient)
@@ -85,7 +87,10 @@ app.whenReady().then(async () => {
 
   // ========= AUTO UPDATER =========
   // Check for updates on startup
-  updateClient.checkForUpdates()
+  // updateClient.checkForUpdates()
+
+  // ========= FIRST TIME ONBOARDING =========
+  await ioClient.runFirstTimeOnboarding()
 
   app.on("will-quit", () => {
     unregisterAllShortcuts()

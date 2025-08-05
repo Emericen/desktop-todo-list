@@ -12,7 +12,7 @@ class QueryOrchestrator {
     this.authClient = null
     this.aiAgent = null
     this.slashCommandHandler = null
-    this.updateClient = null
+    // this.updateClient = null
     this.awaitingUpdateResponse = false
 
     // Initialize user settings for tracking daily usage
@@ -43,13 +43,13 @@ class QueryOrchestrator {
     this.slashCommandHandler = slashCommandHandler
   }
 
-  /**
-   * Set the update client dependency
-   * @param {UpdateClient} updateClient - The update client
-   */
-  setUpdateClient(updateClient) {
-    this.updateClient = updateClient
-  }
+  // /**
+  //  * Set the update client dependency
+  //  * @param {UpdateClient} updateClient - The update client
+  //  */
+  // setUpdateClient(updateClient) {
+  //   this.updateClient = updateClient
+  // }
 
   /**
    * Process a query from the frontend
@@ -84,17 +84,17 @@ class QueryOrchestrator {
       }
 
       // Handle update response if awaiting one
-      if (this.awaitingUpdateResponse && this.updateClient) {
-        const handled = await this.updateClient.handleUpdateResponse(
-          payload.query,
-          visiblePushEvent
-        )
-        if (handled) {
-          this.awaitingUpdateResponse = false
-          event.sender.send("focus-query-input")
-          return { success: true }
-        }
-      }
+      // if (this.awaitingUpdateResponse && this.updateClient) {
+      //   const handled = await this.updateClient.handleUpdateResponse(
+      //     payload.query,
+      //     visiblePushEvent
+      //   )
+      //   if (handled) {
+      //     this.awaitingUpdateResponse = false
+      //     event.sender.send("focus-query-input")
+      //     return { success: true }
+      //   }
+      // }
 
       // Handle authentication flow
       if (!this.authClient.isAuthenticated()) {
