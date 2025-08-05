@@ -5,7 +5,7 @@
   "main": "./out/main/index.js",
   "type": "module",
   "author": "梁岳迪 Eddy",
-  "homepage": "https://www.uiassistant.io/homepage",
+  "homepage": "https://www.lycheeassistant.com/homepage",
   "scripts": {
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
@@ -16,12 +16,13 @@
     "build:linux": "npm run build && electron-builder --linux"
   },
   "build": {
-    "appId": "com.github.emericen.assistant-ui-desktop-release",
+    "productName": "Lychee",
+    "appId": "com.github.emericen.lychee-assistant-release",
     "publish": [
       {
         "provider": "github",
         "owner": "Emericen",
-        "repo": "assistant-ui-desktop-release"
+        "repo": "lychee-assistant-release"
       }
     ],
     "afterSign": "./build/notarize.js",
