@@ -4,7 +4,7 @@
   "description": "A desktop assistant that helps you control your computer.",
   "main": "./out/main/index.js",
   "type": "module",
-  "author": "Eddy Liang 梁岳迪",
+  "author": "梁岳迪 Eddy",
   "homepage": "https://www.uiassistant.io/homepage",
   "scripts": {
     "start": "electron-vite preview",
