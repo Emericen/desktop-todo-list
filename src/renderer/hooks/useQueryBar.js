@@ -23,7 +23,7 @@ export const useQueryBar = (textareaRef) => {
       return "What can I do for you? type `/help` for help"
     if (chatState === CHAT_STATE.WAITING_BACKEND_RESPONSE) return "Thinking..."
     if (chatState === CHAT_STATE.WAITING_USER_RESPONSE)
-      return "Press Enter to confirm or Esc to cancel"
+      return "Press Enter to confirm or Backspace to cancel"
     return ""
   }, [chatState, dictationState])
 
