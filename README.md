@@ -45,10 +45,10 @@ npm run build:linux
 
 ## Current Limitations
 
-- You can double submit queries while a previous one is still generating
-- Message UI components could be more standardized with consistent shadcn usage
-- Does not work well on large monitors. 
-- 
+- Does not work well on large monitors. Thus no windows / PC support yet.
+- Typing is tricky since it clicks first.
+  - When assistant `command + a` then type, it deselects and overlap the texts.
+  - Assistant also have tendency to left click select text box first then type, whereas technically it could just type since it clicks already. Former is how human do things, so goes to say training data.
 
 ## Architecture
 
