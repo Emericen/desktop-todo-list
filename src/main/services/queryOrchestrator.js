@@ -10,7 +10,8 @@ const DAILY_QUERY_LIMIT = 10
 class QueryOrchestrator {
   constructor() {
     this.authClient = null
-    this.aiAgent = null
+    this.backend = null
+    this.toolExecutor = null
     this.slashCommandHandler = null
     // this.updateClient = null
     this.awaitingUpdateResponse = false
@@ -28,11 +29,13 @@ class QueryOrchestrator {
   }
 
   /**
-   * Set the AI agent dependency
-   * @param {Agent} aiAgent - The AI agent for processing queries
+   * Set the backend and tool executor dependencies
+   * @param {Backend} backend - The backend WebSocket client
+   * @param {ToolExecutor} toolExecutor - The tool executor service
    */
-  setAIAgent(aiAgent) {
-    this.aiAgent = aiAgent
+  setAIServices(backend, toolExecutor) {
+    this.backend = backend
+    this.toolExecutor = toolExecutor
   }
 
   /**
@@ -60,7 +63,7 @@ class QueryOrchestrator {
    */
   async processQuery(payload, pushEvent, event) {
     // Validate dependencies
-    if (!this.authClient || !this.aiAgent || !this.slashCommandHandler) {
+    if (!this.authClient || !this.backend || !this.toolExecutor || !this.slashCommandHandler) {
       throw new Error(
         "QueryOrchestrator: dependencies not set. Call setter methods first."
       )
@@ -126,12 +129,290 @@ class QueryOrchestrator {
         this.userSettings.set("usage", usage)
       }
 
-      // Process query with AI agent
-      const result = await this.aiAgent.query(payload.query, visiblePushEvent)
+      // Process query with AI services
+      const result = await this._processAIQuery(payload.query, visiblePushEvent)
       event.sender.send("focus-query-input")
       return result
     } catch (error) {
       return this.handleQueryError(error, pushEvent, event)
+    }
+  }
+
+  /**
+   * Process AI query using WebSocket backend and tool executor
+   * @param {string} query - The user's query
+   * @param {Function} pushEvent - Function to push events to frontend
+   * @returns {Promise<{success: boolean}>} Query result
+   */
+  async _processAIQuery(query, pushEvent) {
+    // Handle test queries first
+    const isTestQuery = await this._handleTestQuery(query, pushEvent)
+    if (isTestQuery) {
+      return { success: true }
+    }
+
+    // Ensure WebSocket is connected
+    if (!this.backend.connected) {
+      await this.backend.connect()
+    }
+
+    // Send query to backend
+    this.backend.send({
+      type: "query",
+      content: query
+    })
+
+    // Set up promise to handle the query lifecycle
+    return new Promise((resolve) => {
+      // Set up message handlers for this query
+      const textHandler = (message) => {
+        pushEvent({ type: "text", content: message.content })
+      }
+
+      const toolRequestHandler = async (message) => {
+        await this.toolExecutor.executeToolRequest(message, pushEvent, this.backend)
+      }
+
+      const completeHandler = (message) => {
+        this._cleanupQueryHandlers(textHandler, toolRequestHandler, completeHandler, errorHandler)
+        resolve({ success: true })
+      }
+
+      const errorHandler = (message) => {
+        pushEvent({ type: "text", content: message.content })
+        this._cleanupQueryHandlers(textHandler, toolRequestHandler, completeHandler, errorHandler)
+        resolve({ success: true })
+      }
+
+      // Register handlers
+      this.backend.onMessage("text", textHandler)
+      this.backend.onMessage("tool_request", toolRequestHandler)
+      this.backend.onMessage("complete", completeHandler)
+      this.backend.onMessage("error", errorHandler)
+    })
+  }
+
+  /**
+   * Clean up query message handlers
+   */
+  _cleanupQueryHandlers(...handlers) {
+    this.backend.removeHandler("text", handlers[0])
+    this.backend.removeHandler("tool_request", handlers[1])
+    this.backend.removeHandler("complete", handlers[2])
+    this.backend.removeHandler("error", handlers[3])
+  }
+
+  /**
+   * Handle test queries - useful for testing tool execution without full AI backend
+   */
+  async _handleTestQuery(query, pushEvent) {
+    switch (query) {
+      case "/screenshot":
+        const screenshot = await this.toolExecutor.ioClient.takeScreenshot()
+        pushEvent({
+          type: "image",
+          content: `data:image/jpeg;base64,${screenshot.base64}`
+        })
+        return true
+
+      case "/annotated-screenshot":
+        const testDots = [
+          { label: "drag", x: 100, y: 100 },
+          { label: "drop", x: 300, y: 719 }
+        ]
+        const annotatedScreenshot =
+          await this.toolExecutor.ioClient.takeScreenshotWithAnnotation(testDots)
+        if (annotatedScreenshot.success) {
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${annotatedScreenshot.base64}`
+          })
+        } else {
+          pushEvent({
+            type: "text",
+            content: `Annotated screenshot failed: ${annotatedScreenshot.error}`
+          })
+        }
+        return true
+
+      case "/bash":
+        try {
+          const cmd = "cd ~/Desktop/workfile/shadcn-learn && npm run dev"
+          pushEvent({ type: "bash", content: cmd })
+
+          // Wait for user confirmation via frontend
+          const confirmed = await new Promise((resolve) => {
+            this.toolExecutor.pendingConfirmation = resolve
+          })
+
+          if (confirmed) {
+            // Execute the command and push the result
+            const execResult = await this.toolExecutor.terminal.execute(cmd)
+            pushEvent({ type: "bash", content: cmd, result: execResult })
+          } else {
+            pushEvent({ type: "text", content: "Command cancelled." })
+          }
+        } catch (error) {
+          pushEvent({
+            type: "text",
+            content: `Test command error: ${error.message}`
+          })
+        }
+        return true
+
+      case "/click":
+        try {
+          const x = 203
+          const y = 687
+          const leftClickAnnotation =
+            await this.toolExecutor.ioClient.takeScreenshotWithAnnotation([
+              { label: "Left Click", x: x, y: y }
+            ])
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${leftClickAnnotation.base64}`
+          })
+          pushEvent({ type: "confirmation", content: "Left click here?" })
+          const confirmed = await new Promise((resolve) => {
+            this.toolExecutor.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.toolExecutor.ioClient.leftClick(x, y)
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Test click error: ${error.message}`
+          })
+        }
+        return true
+
+      case "/double_click":
+        try {
+          const x = 200
+          const y = 200
+          const doubleClickAnnotation =
+            await this.toolExecutor.ioClient.takeScreenshotWithAnnotation([
+              { label: "Double Click", x: x, y: y }
+            ])
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${doubleClickAnnotation.base64}`
+          })
+          pushEvent({ type: "confirmation", content: "Double click here?" })
+          const confirmed = await new Promise((resolve) => {
+            this.toolExecutor.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.toolExecutor.ioClient.doubleClick(x, y)
+            pushEvent({
+              type: "text",
+              content: "✅ Double clicked successfully"
+            })
+          } else {
+            pushEvent({ type: "text", content: "Double click cancelled." })
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Test double click error: ${error.message}`
+          })
+        }
+        return true
+
+      case "/type":
+        try {
+          const x = 100
+          const y = 100
+          const text =
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+          const typeAnnotation =
+            await this.toolExecutor.ioClient.takeScreenshotWithAnnotation([
+              { label: "Type", x: x, y: y }
+            ])
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${typeAnnotation.base64}`
+          })
+          pushEvent({ type: "text", content: `> *"${text}"*` })
+          pushEvent({ type: "confirmation", content: `Type this here?` })
+          const confirmed = await new Promise((resolve) => {
+            this.toolExecutor.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.toolExecutor.ioClient.typeText(x, y, text)
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Test typing error: ${error.message}`
+          })
+        }
+        return true
+
+      case "/drag":
+        try {
+          const x1 = 100
+          const y1 = 100
+          const x2 = 120
+          const y2 = 120
+          const dragAnnotation =
+            await this.toolExecutor.ioClient.takeScreenshotWithAnnotation([
+              { label: "Drag", x: x1, y: y1 },
+              { label: "Drop", x: x2, y: y2 }
+            ])
+          pushEvent({
+            type: "image",
+            content: `data:image/jpeg;base64,${dragAnnotation.base64}`
+          })
+          pushEvent({
+            type: "confirmation",
+            content: "Drag and drop in above?"
+          })
+          const confirmed = await new Promise((resolve) => {
+            this.toolExecutor.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.toolExecutor.ioClient.leftClickDrag(x1, y1, x2, y2)
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Test drag error: ${error.message}`
+          })
+        }
+        return true
+
+      case "/hotkey":
+        try {
+          const testKeys =
+            process.platform === "darwin" ? ["cmd", "c"] : ["ctrl", "c"]
+          pushEvent({
+            type: "confirmation",
+            content: `Execute keyboard shortcut: ${testKeys.join(" + ")}?`
+          })
+          const confirmed = await new Promise((resolve) => {
+            this.toolExecutor.pendingConfirmation = resolve
+          })
+          if (confirmed) {
+            await this.toolExecutor.ioClient.keyboardHotkey(testKeys)
+            pushEvent({
+              type: "text",
+              content: `✅ Executed hotkey: ${testKeys.join(" + ")}`
+            })
+          } else {
+            pushEvent({ type: "text", content: "Hotkey cancelled." })
+          }
+        } catch (error) {
+          pushEvent({
+            type: "error",
+            content: `Test hotkey error: ${error.message}`
+          })
+        }
+        return true
+
+      default:
+        return false
     }
   }
 
@@ -143,15 +424,14 @@ class QueryOrchestrator {
    * @returns {{success: boolean, error: string}} Error result
    */
   handleQueryError(error, pushEvent, event) {
-    console.error("aiAgent.query error:", error)
+    console.error("AI query error:", error)
 
     pushEvent({
       type: "error",
       content: `Error: ${error.message || error}. Conversation has been reset.`
     })
 
-    // Reset backend conversation state so next turn starts fresh
-    this.aiAgent.messages = []
+    // Note: Backend handles conversation state, so we don't need to reset messages here
 
     // Instruct renderer to clear its chat as well
     event.sender.send("clear-messages")
@@ -166,12 +446,12 @@ class QueryOrchestrator {
    * @returns {{success: boolean}} Confirmation result
    */
   handleConfirmation(confirmed) {
-    if (!this.aiAgent) {
-      return { success: false, error: "QueryOrchestrator: aiAgent not set" }
+    if (!this.toolExecutor) {
+      return { success: false, error: "QueryOrchestrator: toolExecutor not set" }
     }
 
     try {
-      this.aiAgent.handleConfirmation(confirmed)
+      this.toolExecutor.handleConfirmation(confirmed)
       return { success: true }
     } catch (error) {
       console.error("Confirmation handling error:", error)
@@ -180,19 +460,14 @@ class QueryOrchestrator {
   }
 
   /**
-   * Clear AI agent conversation messages
+   * Clear conversation messages
    * @param {Object} event - IPC event object
    * @returns {{success: boolean}} Clear result
    */
   clearMessages(event) {
-    if (!this.aiAgent) {
-      return { success: false, error: "QueryOrchestrator: aiAgent not set" }
-    }
-
     try {
-      this.aiAgent.messages = []
-
-      // Notify all renderers to clear their local store just in case
+      // Note: Backend handles conversation state, so we don't need to clear messages there
+      // Just notify all renderers to clear their local store
       const { BrowserWindow } = require("electron")
       BrowserWindow.getAllWindows().forEach((win) =>
         win.webContents.send("clear-messages")

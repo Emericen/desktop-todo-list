@@ -7,12 +7,12 @@ import {
   toggleChatWindow
 } from "./windows/chat.js"
 import { createSystemTray, destroyTray } from "./windows/tray.js"
-import OpenAIClient from "./clients/openai.js"
 import { registerFromSettings, unregisterAllShortcuts } from "./shortcuts.js"
-import Agent from "./clients/agent.js"
+import Backend from "./clients/backend.js"
 import IOClient from "./clients/io.js"
 import AuthClient from "./clients/auth.js"
 // import UpdateClient from "./clients/update.js"
+import ToolExecutor from "./services/toolExecutor.js"
 import SlashCommandHandler from "./services/slashCommandHandler.js"
 import QueryOrchestrator from "./services/queryOrchestrator.js"
 import IPCHandlers from "./services/ipcHandlers.js"
@@ -34,9 +34,9 @@ app.whenReady().then(async () => {
   // Initialize core services (no dependencies)
   const userSettings = new UserSettings()
   const authClient = new AuthClient()
-  const aiAgent = new Agent() // Anthropic Claude integration
+  const backend = new Backend() // WebSocket + HTTP to AI backend
+  const toolExecutor = new ToolExecutor() // Tool execution service
   const ioClient = new IOClient()
-  const openaiClient = new OpenAIClient() // Whisper transcription
   // const updateClient = new UpdateClient() // Auto-updater with user consent
   await authClient.loadStoredSession()
 
@@ -52,7 +52,7 @@ app.whenReady().then(async () => {
   slashCommandHandler.setUserSettings(userSettings)
 
   queryOrchestrator.setAuthClient(authClient)
-  queryOrchestrator.setAIAgent(aiAgent)
+  queryOrchestrator.setAIServices(backend, toolExecutor)
   queryOrchestrator.setSlashCommandHandler(slashCommandHandler)
   // queryOrchestrator.setUpdateClient(updateClient)
 
@@ -62,7 +62,16 @@ app.whenReady().then(async () => {
   // })
 
   ipcHandlers.setQueryOrchestrator(queryOrchestrator)
-  ipcHandlers.setOpenAIClient(openaiClient)
+  ipcHandlers.setBackend(backend)
+
+  // Connect to backend WebSocket
+  try {
+    await backend.connect()
+    console.log("Backend WebSocket connected successfully")
+  } catch (error) {
+    console.warn("Failed to connect to backend on startup:", error.message)
+    console.log("Connection will be attempted when first query is made")
+  }
 
   // Default open or close DevTools by F12 in development
   app.on("browser-window-created", (_, window) => {
