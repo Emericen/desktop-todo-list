@@ -7,7 +7,7 @@ import { ipcMain } from "electron"
 class IPCHandlers {
   constructor() {
     this.queryOrchestrator = null
-    this.openaiClient = null
+    this.backend = null
   }
 
   /**
@@ -19,11 +19,11 @@ class IPCHandlers {
   }
 
   /**
-   * Set the OpenAI client dependency
-   * @param {OpenAIClient} openaiClient - The OpenAI client
+   * Set the backend dependency
+   * @param {Backend} backend - The backend client
    */
-  setOpenAIClient(openaiClient) {
-    this.openaiClient = openaiClient
+  setBackend(backend) {
+    this.backend = backend
   }
 
   /**
@@ -31,7 +31,7 @@ class IPCHandlers {
    */
   registerHandlers() {
     // Validate dependencies
-    if (!this.queryOrchestrator || !this.openaiClient) {
+    if (!this.queryOrchestrator || !this.backend) {
       throw new Error('IPCHandlers: dependencies not set. Call setter methods first.')
     }
 
@@ -55,13 +55,13 @@ class IPCHandlers {
   }
 
   /**
-   * Register transcription handler
+   * Register transcription handler - uses Backend class
    */
   registerTranscribeHandler() {
     ipcMain.handle("transcribe", async (_event, payload) => {
       try {
         const audioBuffer = Buffer.from(payload.audio, "base64")
-        return await this.openaiClient.transcribeAudio(audioBuffer, payload.filename)
+        return await this.backend.transcribeAudio(audioBuffer, payload.filename)
       } catch (error) {
         console.error("Transcription error:", error)
         return { success: false, error: error.message }

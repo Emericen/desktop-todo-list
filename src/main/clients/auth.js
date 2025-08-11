@@ -1,18 +1,13 @@
-import { createClient } from "@supabase/supabase-js"
 import fs from "fs"
 import path from "path"
 import { app } from "electron"
 
 export default class AuthClient {
-  constructor() {
-    // Use hardcoded Supabase credentials
-    this.supabase = createClient(
-      "https://kbqzmwyfhyxfaewpkytz.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImticXptd3lmaHl4ZmFld3BreXR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3OTcxODEsImV4cCI6MjA2ODM3MzE4MX0.l8AjHRLswuavcAakcdzwHT3XUiXi2fr_hE7d-Xtf13c"
-    )
+  constructor(backend) {
+    this.backend = backend
 
     // Session storage file path (unencrypted JSON)
-    this.STORAGE_FILE = path.join(app.getPath('userData'), 'session.json')
+    this.STORAGE_FILE = path.join(app.getPath("userData"), "session.json")
 
     // in-memory state for the lightweight wizard
     this.stage = "start" // start, email, otp
@@ -30,8 +25,8 @@ export default class AuthClient {
   async loadStoredSession() {
     try {
       if (fs.existsSync(this.STORAGE_FILE)) {
-        const storedData = fs.readFileSync(this.STORAGE_FILE, 'utf8')
-        
+        const storedData = fs.readFileSync(this.STORAGE_FILE, "utf8")
+
         if (storedData) {
           const parsed = JSON.parse(storedData)
           if (parsed.session && parsed.user) {
@@ -74,7 +69,7 @@ export default class AuthClient {
   async saveSession(session, user) {
     try {
       const sessionData = JSON.stringify({ session, user }, null, 2)
-      fs.writeFileSync(this.STORAGE_FILE, sessionData, 'utf8')
+      fs.writeFileSync(this.STORAGE_FILE, sessionData, "utf8")
     } catch (err) {
       console.error("Failed to save session:", err)
     }
