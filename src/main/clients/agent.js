@@ -296,17 +296,17 @@ export default class Agent {
   constructor() {
     this.ioClient = new IOClient()
 
-    // Use hardcoded backend URL
-    this.platformBaseUrl = "https://www.lycheeassistant.com/"
-    // this.platformBaseUrl = "http://localhost:3000"
-
-    this.system = system.trim()
-
-    this.messages = []
+    // Use WebSocket for backend communication
+    this.backendWsUrl = "ws://localhost:8000/agent/ws"
+    
     this.terminal = new Terminal()
 
     // For handling confirmation responses
     this.pendingConfirmation = null
+    
+    // WebSocket connection
+    this.websocket = null
+    this.connected = false
   }
 
   async query(query, pushEvent) {
@@ -315,676 +315,262 @@ export default class Agent {
       return { success: true }
     }
 
-    this.messages.push({ role: "user", content: query })
-
-    let hasNextTurn = true // Start with true to enter the loop
-    let step = 0
-    while (hasNextTurn) {
-      hasNextTurn = false
-
-      console.log(`[${step}] Sending request to Anthropic`)
-      const httpResponse = await fetch(`${this.platformBaseUrl}/api/query`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          tools: tools,
-          system: this.system,
-          messages: this.messages,
-          max_tokens: 2048,
-          temperature: 0,
-          stream: false
-        })
-      })
-
-      if (!httpResponse.ok) {
-        try {
-          const rawResponse = await httpResponse.text()
-          const response = JSON.parse(rawResponse)
-          if (response.message) {
-            pushEvent({
-              type: "text",
-              content: response.message
-            })
-          } else {
-            pushEvent({
-              type: "text",
-              content: `Platform API error ${httpResponse.status}: ${rawResponse}`
-            })
-          }
-        } catch (e) {
-          pushEvent({
-            type: "text",
-            content: `Platform API error ${httpResponse.status}: ${rawResponse}`
-          })
-        }
-        return { success: true }
-      }
-
-      // Platform returns the same format as Anthropic API
-      const response = await httpResponse.json()
-      this.messages.push({ role: "assistant", content: response.content })
-
-      let toolStep = 0
-      let hadToolUse = false
-      for (const content of response.content) {
-        if (content.type === "text") {
-          pushEvent({ type: "text", content: content.text })
-        } else if (content.type === "tool_use") {
-          hadToolUse = true // Mark that we had tool use in this response
-          switch (content.name) {
-            case "bash": {
-              pushEvent({ type: "bash", content: content.input.command })
-
-              // Wait for user confirmation via frontend
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-
-              if (confirmed) {
-                // Clear any unread output before running new command
-                this.terminal.clearOutput()
-
-                // Execute the command (metadata only)
-                const meta = await this.terminal.execute(content.input.command)
-
-                // Retrieve the actual text produced by the command
-                const output = this.terminal.getOutput()
-                const execResult = { ...meta, output }
-
-                pushEvent({
-                  type: "bash",
-                  content: content.input.command,
-                  result: execResult
-                })
-
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: JSON.stringify(execResult, null, 2)
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled – send a dummy tool_result so protocol stays consistent
-                pushEvent({ type: "text", content: "Command cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                // Break out of conversation loop when cancelled
-                return { success: true }
-              }
-              break
-            }
-            case "terminal_interrupt": {
-              pushEvent({ type: "bash", content: "ctrl+c" })
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-              if (confirmed) {
-                await this.terminal.interrupt()
-                // record tool result
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Sent Ctrl+C"
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled – send a dummy tool_result so protocol stays consistent
-                pushEvent({ type: "text", content: "Command cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                // Break out of conversation loop when cancelled
-                return { success: true }
-              }
-              break
-            }
-            case "terminal_next": {
-              const output = this.terminal.getOutput()
-              if (output.trim()) {
-                pushEvent({
-                  type: "text",
-                  content: `\u0060\u0060\u0060bash\n${output.trimEnd()}\n\u0060\u0060\u0060`
-                })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: output.substring(0, 1000) // limit size
-                    }
-                  ]
-                })
-              } else {
-                pushEvent({ type: "text", content: "(no new output)" })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "No new output"
-                    }
-                  ]
-                })
-              }
-              break
-            }
-            case "terminal_send_interactive_input": {
-              const input = content.input.input
-              await this.terminal.sendInteractiveInput(input)
-              this.messages.push({
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result",
-                    tool_use_id: content.id,
-                    content: `Sent input: ${input}`
-                  }
-                ]
-              })
-              break
-            }
-            case "screenshot": {
-              pushEvent({
-                type: "text",
-                content: "\n\n*👀 Taking a look...*\n\n"
-              })
-              const screenshot = await this.ioClient.takeScreenshot()
-              // Send tool_result for Anthropic
-              this.messages.push({
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result",
-                    tool_use_id: content.id,
-                    content: [
-                      {
-                        type: "image",
-                        source: {
-                          type: "base64",
-                          media_type: "image/jpeg",
-                          data: screenshot.base64
-                        }
-                      }
-                    ]
-                  }
-                ]
-              })
-              break
-            }
-            case "left_click": {
-              const x = content.input.x
-              const y = content.input.y
-              const leftClickAnnotation =
-                await this.ioClient.takeScreenshotWithAnnotation([
-                  { label: "Left Click", x: x, y: y }
-                ])
-              pushEvent({
-                type: "image",
-                content: `data:image/jpeg;base64,${leftClickAnnotation.base64}`
-              })
-              pushEvent({ type: "confirmation", content: "Left click here?" })
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-              if (confirmed) {
-                await this.ioClient.leftClick(x, y)
-                // Wait briefly then take screenshot to show result
-                await new Promise((resolve) => setTimeout(resolve, 100))
-                const resultScreenshot = await this.ioClient.takeScreenshot()
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: [
-                        {
-                          type: "text",
-                          text: `✅ Left clicked at (${x}, ${y})`
-                        },
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/jpeg",
-                            data: resultScreenshot.base64
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled - just break out of query
-                pushEvent({ type: "text", content: "Action cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                return { success: true }
-              }
-              break
-            }
-            case "right_click": {
-              const x = content.input.x
-              const y = content.input.y
-              const rightClickAnnotation =
-                await this.ioClient.takeScreenshotWithAnnotation([
-                  { label: "Right Click", x: x, y: y }
-                ])
-              pushEvent({
-                type: "image",
-                content: `data:image/jpeg;base64,${rightClickAnnotation.base64}`
-              })
-              pushEvent({ type: "confirmation", content: "Right click here?" })
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-              if (confirmed) {
-                await this.ioClient.rightClick(x, y)
-                // Wait briefly then take screenshot to show result
-                await new Promise((resolve) => setTimeout(resolve, 100))
-                const resultScreenshot = await this.ioClient.takeScreenshot()
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: [
-                        {
-                          type: "text",
-                          text: `✅ Right clicked at (${x}, ${y})`
-                        },
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/jpeg",
-                            data: resultScreenshot.base64
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled - just break out of query
-                pushEvent({ type: "text", content: "Action cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                return { success: true }
-              }
-              break
-            }
-            case "double_click": {
-              const x = content.input.x
-              const y = content.input.y
-              const doubleClickAnnotation =
-                await this.ioClient.takeScreenshotWithAnnotation([
-                  { label: "Double Click", x: x, y: y }
-                ])
-              pushEvent({
-                type: "image",
-                content: `data:image/jpeg;base64,${doubleClickAnnotation.base64}`
-              })
-              pushEvent({ type: "confirmation", content: "Double click here?" })
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-              if (confirmed) {
-                await this.ioClient.doubleClick(x, y)
-                // Wait briefly then take screenshot to show result
-                await new Promise((resolve) => setTimeout(resolve, 100))
-                const resultScreenshot = await this.ioClient.takeScreenshot()
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: [
-                        {
-                          type: "text",
-                          text: `✅ Double clicked at (${x}, ${y})`
-                        },
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/jpeg",
-                            data: resultScreenshot.base64
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled - just break out of query
-                pushEvent({ type: "text", content: "Action cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                return { success: true }
-              }
-              break
-            }
-            case "drag": {
-              const x1 = content.input.x1
-              const y1 = content.input.y1
-              const x2 = content.input.x2
-              const y2 = content.input.y2
-              const dragAnnotation =
-                await this.ioClient.takeScreenshotWithAnnotation([
-                  { label: "Drag", x: x1, y: y1 },
-                  { label: "Drop", x: x2, y: y2 }
-                ])
-              pushEvent({
-                type: "image",
-                content: `data:image/jpeg;base64,${dragAnnotation.base64}`
-              })
-              pushEvent({
-                type: "confirmation",
-                content: "Drag and drop in above?"
-              })
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-              if (confirmed) {
-                await this.ioClient.leftClickDrag(x1, y1, x2, y2)
-                // Wait briefly then take screenshot to show result
-                await new Promise((resolve) => setTimeout(resolve, 100))
-                const resultScreenshot = await this.ioClient.takeScreenshot()
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: [
-                        {
-                          type: "text",
-                          text: `✅ Dragged from (${x1}, ${y1}) to (${x2}, ${y2})`
-                        },
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/jpeg",
-                            data: resultScreenshot.base64
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled - just break out of query
-                pushEvent({ type: "text", content: "Action cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                return { success: true }
-              }
-              break
-            }
-            case "scroll": {
-              const pixels = content.input.pixels
-              const x = content.input.x
-              const y = content.input.y
-              const scrollAnnotation =
-                await this.ioClient.takeScreenshotWithAnnotation([
-                  { label: "Scroll", x: x, y: y }
-                ])
-              pushEvent({
-                type: "image",
-                content: `data:image/jpeg;base64,${scrollAnnotation.base64}`
-              })
-              pushEvent({
-                type: "confirmation",
-                content: `Scroll ${pixels} pixels here?`
-              })
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-              if (confirmed) {
-                await this.ioClient.scroll(pixels, x, y)
-                // Wait briefly then take screenshot to show result
-                await new Promise((resolve) => setTimeout(resolve, 100))
-                const resultScreenshot = await this.ioClient.takeScreenshot()
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: [
-                        {
-                          type: "text",
-                          text: `✅ Scrolled ${pixels} pixels at (${x}, ${y})`
-                        },
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/jpeg",
-                            data: resultScreenshot.base64
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled - just break out of query
-                pushEvent({ type: "text", content: "Action cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                return { success: true }
-              }
-              break
-            }
-            case "type": {
-              const x = content.input.x
-              const y = content.input.y
-              const text = content.input.text
-              const typeAnnotation =
-                await this.ioClient.takeScreenshotWithAnnotation([
-                  { label: "Type", x: x, y: y }
-                ])
-              pushEvent({
-                type: "image",
-                content: `data:image/jpeg;base64,${typeAnnotation.base64}`
-              })
-              pushEvent({ type: "text", content: `> *"${text}"*` })
-              pushEvent({ type: "confirmation", content: `Type this here?` })
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-              if (confirmed) {
-                await this.ioClient.typeText(x, y, text)
-                // Wait briefly then take screenshot to show result
-                await new Promise((resolve) => setTimeout(resolve, 100))
-                const resultScreenshot = await this.ioClient.takeScreenshot()
-                pushEvent({
-                  type: "image",
-                  content: `data:image/jpeg;base64,${resultScreenshot.base64}`
-                })
-
-                // Record success with screenshot
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: [
-                        {
-                          type: "text",
-                          text: `✅ Typed "${text}" at (${x}, ${y})`
-                        },
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/jpeg",
-                            data: resultScreenshot.base64
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled - just break out of query
-                pushEvent({ type: "text", content: "Action cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                return { success: true }
-              }
-              break
-            }
-            case "keyboard_hotkey": {
-              const keys = content.input.keys
-              pushEvent({
-                type: "confirmation",
-                content: `Execute keyboard shortcut: ${keys.join(" + ")}?`
-              })
-              const confirmed = await new Promise((resolve) => {
-                this.pendingConfirmation = resolve
-              })
-              if (confirmed) {
-                await this.ioClient.keyboardHotkey(keys)
-                // Wait briefly then take screenshot to show result
-                await new Promise((resolve) => setTimeout(resolve, 100))
-                const resultScreenshot = await this.ioClient.takeScreenshot()
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: [
-                        {
-                          type: "text",
-                          text: `✅ Executed hotkey: ${keys.join(" + ")}`
-                        },
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/jpeg",
-                            data: resultScreenshot.base64
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                })
-              } else {
-                // User cancelled - just break out of query
-                pushEvent({ type: "text", content: "Hotkey cancelled." })
-                this.messages.push({
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: content.id,
-                      content: "Cancelled by user."
-                    }
-                  ]
-                })
-                return { success: true }
-              }
-              break
-            }
-          }
-        }
-        toolStep++
-      }
-
-      // Continue to next turn if we had any tool use in this response
-      if (hadToolUse) {
-        hasNextTurn = true
-      }
-
-      step++
+    // Connect to WebSocket if not already connected
+    if (!this.connected) {
+      await this.connectWebSocket(pushEvent)
     }
 
-    return { success: true }
+    // Send query to backend
+    this.websocket.send(JSON.stringify({
+      type: "query",
+      content: query
+    }))
+
+    // Set up message handler for this query
+    return new Promise((resolve) => {
+      const originalOnMessage = this.websocket.onmessage
+
+      this.websocket.onmessage = async (event) => {
+        const response = JSON.parse(event.data)
+        
+        switch (response.type) {
+          case "text":
+            pushEvent({ type: "text", content: response.content })
+            break
+            
+          case "tool_request":
+            await this.handleToolRequest(response, pushEvent)
+            break
+            
+          case "complete":
+            this.websocket.onmessage = originalOnMessage
+            resolve({ success: true })
+            break
+            
+          case "error":
+            pushEvent({ type: "text", content: response.content })
+            this.websocket.onmessage = originalOnMessage
+            resolve({ success: true })
+            break
+        }
+      }
+    })
+  }
+
+  async connectWebSocket(pushEvent) {
+    return new Promise((resolve, reject) => {
+      this.websocket = new WebSocket(this.backendWsUrl)
+      
+      this.websocket.onopen = () => {
+        console.log("Connected to backend WebSocket")
+        this.connected = true
+        resolve()
+      }
+      
+      this.websocket.onclose = () => {
+        console.log("WebSocket connection closed")
+        this.connected = false
+      }
+      
+      this.websocket.onerror = (error) => {
+        console.error("WebSocket error:", error)
+        pushEvent({ type: "text", content: "Failed to connect to backend" })
+        reject(error)
+      }
+      
+      this.websocket.onmessage = (event) => {
+        const message = JSON.parse(event.data)
+        if (message.type === "status" && message.status === "connected") {
+          console.log("Backend connection established")
+        }
+      }
+    })
+  }
+
+  async handleToolRequest(toolRequest, pushEvent) {
+    const { tool_use_id, tool, params } = toolRequest
+    
+    switch (tool) {
+      case "bash": {
+        pushEvent({ type: "bash", content: params.command })
+
+        // Wait for user confirmation via frontend
+        const confirmed = await new Promise((resolve) => {
+          this.pendingConfirmation = resolve
+        })
+
+        if (confirmed) {
+          // Clear any unread output before running new command
+          this.terminal.clearOutput()
+
+          // Execute the command (metadata only)
+          const meta = await this.terminal.execute(params.command)
+
+          // Retrieve the actual text produced by the command
+          const output = this.terminal.getOutput()
+          const execResult = { ...meta, output }
+
+          pushEvent({
+            type: "bash",
+            content: params.command,
+            result: execResult
+          })
+
+          // Send result back to backend
+          this.websocket.send(JSON.stringify({
+            type: "tool_result",
+            tool_use_id: tool_use_id,
+            result: JSON.stringify(execResult, null, 2)
+          }))
+        } else {
+          // User cancelled – send decline to backend
+          pushEvent({ type: "text", content: "Command cancelled." })
+          this.websocket.send(JSON.stringify({
+            type: "tool_declined",
+            tool_use_id: tool_use_id
+          }))
+        }
+        break
+      }
+      
+      case "terminal_interrupt": {
+        pushEvent({ type: "bash", content: "ctrl+c" })
+        const confirmed = await new Promise((resolve) => {
+          this.pendingConfirmation = resolve
+        })
+        if (confirmed) {
+          await this.terminal.interrupt()
+          this.websocket.send(JSON.stringify({
+            type: "tool_result",
+            tool_use_id: tool_use_id,
+            result: "Sent Ctrl+C"
+          }))
+        } else {
+          pushEvent({ type: "text", content: "Command cancelled." })
+          this.websocket.send(JSON.stringify({
+            type: "tool_declined",
+            tool_use_id: tool_use_id
+          }))
+        }
+        break
+      }
+      
+      case "terminal_next": {
+        const output = this.terminal.getOutput()
+        if (output.trim()) {
+          pushEvent({
+            type: "text",
+            content: `\`\`\`bash\n${output.trimEnd()}\n\`\`\``
+          })
+          this.websocket.send(JSON.stringify({
+            type: "tool_result",
+            tool_use_id: tool_use_id,
+            result: output.substring(0, 1000) // limit size
+          }))
+        } else {
+          pushEvent({ type: "text", content: "(no new output)" })
+          this.websocket.send(JSON.stringify({
+            type: "tool_result",
+            tool_use_id: tool_use_id,
+            result: "No new output"
+          }))
+        }
+        break
+      }
+      
+      case "terminal_send_interactive_input": {
+        const input = params.input
+        await this.terminal.sendInteractiveInput(input)
+        this.websocket.send(JSON.stringify({
+          type: "tool_result",
+          tool_use_id: tool_use_id,
+          result: `Sent input: ${input}`
+        }))
+        break
+      }
+      
+      case "screenshot": {
+        pushEvent({
+          type: "text",
+          content: "\n\n*👀 Taking a look...*\n\n"
+        })
+        const screenshot = await this.ioClient.takeScreenshot()
+        // Send tool_result for backend to forward to Anthropic
+        this.websocket.send(JSON.stringify({
+          type: "tool_result",
+          tool_use_id: tool_use_id,
+          result: JSON.stringify([
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/jpeg",
+                data: screenshot.base64
+              }
+            }
+          ])
+        }))
+        break
+      }
+      
+      case "left_click": {
+        const x = params.x
+        const y = params.y
+        const leftClickAnnotation =
+          await this.ioClient.takeScreenshotWithAnnotation([
+            { label: "Left Click", x: x, y: y }
+          ])
+        pushEvent({
+          type: "image",
+          content: `data:image/jpeg;base64,${leftClickAnnotation.base64}`
+        })
+        pushEvent({ type: "confirmation", content: "Left click here?" })
+        const confirmed = await new Promise((resolve) => {
+          this.pendingConfirmation = resolve
+        })
+        if (confirmed) {
+          await this.ioClient.leftClick(x, y)
+          // Wait briefly then take screenshot to show result
+          await new Promise((resolve) => setTimeout(resolve, 100))
+          const resultScreenshot = await this.ioClient.takeScreenshot()
+          this.websocket.send(JSON.stringify({
+            type: "tool_result",
+            tool_use_id: tool_use_id,
+            result: JSON.stringify([
+              {
+                type: "text",
+                text: `✅ Left clicked at (${x}, ${y})`
+              },
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/jpeg",
+                  data: resultScreenshot.base64
+                }
+              }
+            ])
+          }))
+        } else {
+          pushEvent({ type: "text", content: "Action cancelled." })
+          this.websocket.send(JSON.stringify({
+            type: "tool_declined",
+            tool_use_id: tool_use_id
+          }))
+        }
+        break
+      }
+      
+      // Add remaining tool handlers here...
+      default:
+        // For tools not yet implemented, send a generic "not implemented" result
+        this.websocket.send(JSON.stringify({
+          type: "tool_result",
+          tool_use_id: tool_use_id,
+          result: `Tool ${tool} not yet implemented in desktop client`
+        }))
+        break
+    }
   }
 
   async handleTestQuery(query, pushEvent) {
