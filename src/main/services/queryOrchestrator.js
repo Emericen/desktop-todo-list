@@ -1,5 +1,8 @@
 import { showChatWindow } from "../windows/chat.js"
 import UserSettings from "./userSettings.js"
+import fs from "fs"
+import path from "path"
+import { app } from "electron"
 
 const DAILY_QUERY_LIMIT = 10
 
@@ -9,7 +12,6 @@ const DAILY_QUERY_LIMIT = 10
  */
 class QueryOrchestrator {
   constructor() {
-    this.authClient = null
     this.backend = null
     this.toolExecutor = null
     this.slashCommandHandler = null
@@ -18,14 +20,13 @@ class QueryOrchestrator {
 
     // Initialize user settings for tracking daily usage
     this.userSettings = new UserSettings()
-  }
 
-  /**
-   * Set the auth client dependency
-   * @param {AuthClient} authClient - The authentication client
-   */
-  setAuthClient(authClient) {
-    this.authClient = authClient
+    // Auth state management (moved from AuthClient)
+    this.STORAGE_FILE = path.join(app.getPath("userData"), "session.json")
+    this.authStage = "start" // start, email, otp, authenticated
+    this.email = null
+    this.session = null
+    this.user = null
   }
 
   /**
@@ -63,7 +64,7 @@ class QueryOrchestrator {
    */
   async processQuery(payload, pushEvent, event) {
     // Validate dependencies
-    if (!this.authClient || !this.backend || !this.toolExecutor || !this.slashCommandHandler) {
+    if (!this.backend || !this.toolExecutor || !this.slashCommandHandler) {
       throw new Error(
         "QueryOrchestrator: dependencies not set. Call setter methods first."
       )
@@ -100,8 +101,8 @@ class QueryOrchestrator {
       // }
 
       // Handle authentication flow
-      if (!this.authClient.isAuthenticated()) {
-        await this.authClient.handle(payload.query, visiblePushEvent)
+      if (!this.isAuthenticated()) {
+        await this.handleAuth(payload.query, visiblePushEvent)
         event.sender.send("focus-query-input")
         return { success: true }
       }
@@ -170,17 +171,31 @@ class QueryOrchestrator {
       }
 
       const toolRequestHandler = async (message) => {
-        await this.toolExecutor.executeToolRequest(message, pushEvent, this.backend)
+        await this.toolExecutor.executeToolRequest(
+          message,
+          pushEvent,
+          this.backend
+        )
       }
 
       const completeHandler = (message) => {
-        this._cleanupQueryHandlers(textHandler, toolRequestHandler, completeHandler, errorHandler)
+        this._cleanupQueryHandlers(
+          textHandler,
+          toolRequestHandler,
+          completeHandler,
+          errorHandler
+        )
         resolve({ success: true })
       }
 
       const errorHandler = (message) => {
         pushEvent({ type: "text", content: message.content })
-        this._cleanupQueryHandlers(textHandler, toolRequestHandler, completeHandler, errorHandler)
+        this._cleanupQueryHandlers(
+          textHandler,
+          toolRequestHandler,
+          completeHandler,
+          errorHandler
+        )
         resolve({ success: true })
       }
 
@@ -221,7 +236,9 @@ class QueryOrchestrator {
           { label: "drop", x: 300, y: 719 }
         ]
         const annotatedScreenshot =
-          await this.toolExecutor.ioClient.takeScreenshotWithAnnotation(testDots)
+          await this.toolExecutor.ioClient.takeScreenshotWithAnnotation(
+            testDots
+          )
         if (annotatedScreenshot.success) {
           pushEvent({
             type: "image",
@@ -441,13 +458,214 @@ class QueryOrchestrator {
   }
 
   /**
+   * Authentication methods - moved from AuthClient
+   */
+
+  /**
+   * Load stored session on app startup
+   */
+  async loadStoredSession() {
+    try {
+      if (fs.existsSync(this.STORAGE_FILE)) {
+        const storedData = fs.readFileSync(this.STORAGE_FILE, "utf8")
+
+        if (storedData) {
+          const parsed = JSON.parse(storedData)
+          if (parsed.session && parsed.user) {
+            // Validate token with backend
+            const result = await this.backend.getUserProfile(
+              parsed.session.access_token
+            )
+            if (result.success) {
+              this.session = parsed.session
+              this.user = result.user
+              this.authStage = "authenticated"
+              console.log("Session restored for:", this.user.email)
+              return true
+            } else {
+              console.error("Stored token invalid:", result.error)
+              this.clearStoredSession()
+              this.resetAuth()
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("loadStoredSession error", err)
+      this.clearStoredSession()
+      this.resetAuth()
+    }
+    return false
+  }
+
+  /**
+   * Clear stored session data
+   */
+  clearStoredSession() {
+    try {
+      if (fs.existsSync(this.STORAGE_FILE)) {
+        fs.unlinkSync(this.STORAGE_FILE)
+      }
+    } catch (err) {
+      console.error("Failed to clear stored session:", err)
+    }
+  }
+
+  /**
+   * Save session data to local storage
+   */
+  async saveSession(session, user) {
+    try {
+      const sessionData = JSON.stringify({ session, user }, null, 2)
+      fs.writeFileSync(this.STORAGE_FILE, sessionData, "utf8")
+    } catch (err) {
+      console.error("Failed to save session:", err)
+    }
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated() {
+    return Boolean(
+      this.session &&
+        this.session.access_token &&
+        this.authStage === "authenticated"
+    )
+  }
+
+  /**
+   * Get current session
+   */
+  getSession() {
+    return this.session
+  }
+
+  /**
+   * Get current user
+   */
+  getUser() {
+    return this.user
+  }
+
+  /**
+   * Reset auth state
+   */
+  resetAuth() {
+    this.authStage = "start"
+    this.email = null
+    this.session = null
+    this.user = null
+  }
+
+  /**
+   * Handle authentication flow via chat interface
+   */
+  async handleAuth(query, pushEvent) {
+    switch (this.authStage) {
+      case "start":
+        pushEvent({
+          type: "text",
+          content: "Please sign in. Enter your email to continue."
+        })
+        this.authStage = "email"
+        return true
+
+      case "email":
+        this.email = query.trim()
+        try {
+          const result = await this.backend.sendOTP(this.email)
+
+          if (result.success) {
+            pushEvent({
+              type: "text",
+              content: "Please enter the 6-digit code sent to your email."
+            })
+            this.authStage = "otp"
+          } else {
+            pushEvent({
+              type: "text",
+              content: `Error sending OTP: ${result.error}. Please enter your email again.`
+            })
+            this.authStage = "email"
+          }
+        } catch (error) {
+          pushEvent({
+            type: "text",
+            content: `Invalid email! Please enter a valid email address.`
+          })
+          this.authStage = "email"
+        }
+        return true
+
+      case "otp":
+        const otp = query.trim()
+        try {
+          const result = await this.backend.verifyOTP(this.email, otp)
+
+          if (result.success) {
+            this.user = result.user
+            this.session = {
+              access_token: result.access_token,
+              refresh_token: result.refresh_token
+            }
+            this.authStage = "authenticated"
+
+            // Persist session for next launch
+            await this.saveSession(this.session, this.user)
+
+            pushEvent({
+              type: "text",
+              content: `✅ Authentication successful! Hello, ${this.user.email}!`
+            })
+          } else {
+            pushEvent({
+              type: "text",
+              content: `Invalid OTP: ${result.error}. Please enter your email again to restart.`
+            })
+            this.resetAuth()
+          }
+        } catch (error) {
+          pushEvent({
+            type: "text",
+            content: `Error verifying OTP: ${error.message}. Please enter your email again.`
+          })
+          this.resetAuth()
+        }
+        return true
+
+      default:
+        return false
+    }
+  }
+
+  /**
+   * Logout user
+   */
+  async logout() {
+    try {
+      if (this.session?.access_token) {
+        await this.backend.logout(this.session.access_token)
+      }
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
+
+    this.clearStoredSession()
+    this.resetAuth()
+  }
+
+  /**
    * Handle confirmation from user
    * @param {boolean} confirmed - Whether user confirmed the action
    * @returns {{success: boolean}} Confirmation result
    */
   handleConfirmation(confirmed) {
     if (!this.toolExecutor) {
-      return { success: false, error: "QueryOrchestrator: toolExecutor not set" }
+      return {
+        success: false,
+        error: "QueryOrchestrator: toolExecutor not set"
+      }
     }
 
     try {

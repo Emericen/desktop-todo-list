@@ -1,12 +1,13 @@
 export default class Backend {
   constructor() {
     // Environment-based URL configuration
-    this.baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://your-app.onrender.com'  // TODO: Update when deployed
-      : 'http://localhost:8000'
-    
-    this.wsUrl = this.baseUrl.replace(/^http/, 'ws') + '/agent/ws'
-    
+    this.baseUrl =
+      process.env.NODE_ENV === "production"
+        ? "https://your-app.onrender.com" // TODO: Update when deployed
+        : "http://localhost:8000"
+
+    this.wsUrl = this.baseUrl.replace(/^http/, "ws") + "/agent/ws"
+
     this.connection = null
     this.connected = false
     this.messageHandlers = new Map()
@@ -62,7 +63,7 @@ export default class Backend {
     if (!this.connected || !this.connection) {
       throw new Error("WebSocket not connected")
     }
-    
+
     this.connection.send(JSON.stringify(message))
   }
 
@@ -100,7 +101,7 @@ export default class Backend {
       // Call registered handlers for this message type
       if (this.messageHandlers.has(type)) {
         const handlers = this.messageHandlers.get(type)
-        handlers.forEach(handler => {
+        handlers.forEach((handler) => {
           try {
             handler(message)
           } catch (error) {
@@ -122,7 +123,9 @@ export default class Backend {
     }
 
     this.reconnectAttempts++
-    console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
+    console.log(
+      `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+    )
 
     setTimeout(async () => {
       try {
@@ -138,20 +141,20 @@ export default class Backend {
    */
   async httpRequest(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`
-    
+
     try {
       const response = await fetch(url, {
         ...options,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...options.headers
         }
       })
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
-      
+
       return response
     } catch (error) {
       console.error(`HTTP request failed for ${endpoint}:`, error)
@@ -170,22 +173,93 @@ export default class Backend {
         type: filename?.includes(".webm") ? "audio/webm" : "audio/wav"
       })
       formData.append("file", audioBlob, filename)
-      
+
       // Call backend transcription endpoint
       const response = await fetch(`${this.baseUrl}/voice/transcribe`, {
         method: "POST",
         body: formData // Don't set Content-Type header, let browser set it with boundary
       })
-      
+
       if (!response.ok) {
         throw new Error(`Transcription API error: ${response.status}`)
       }
-      
+
       const result = await response.json()
       return result
-      
     } catch (error) {
       console.error("Transcription error:", error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  /**
+   * Send OTP to user's email
+   */
+  async sendOTP(email) {
+    try {
+      const response = await this.httpRequest("/user/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ email })
+      })
+
+      return await response.json()
+    } catch (error) {
+      console.error("Send OTP error:", error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  /**
+   * Verify OTP and get authentication token
+   */
+  async verifyOTP(email, otp) {
+    try {
+      const response = await this.httpRequest("/user/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({ email, otp })
+      })
+
+      return await response.json()
+    } catch (error) {
+      console.error("Verify OTP error:", error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  /**
+   * Get user profile (validates token)
+   */
+  async getUserProfile(token) {
+    try {
+      const response = await this.httpRequest("/user/profile", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      return await response.json()
+    } catch (error) {
+      console.error("Get profile error:", error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  /**
+   * Logout user
+   */
+  async logout(token) {
+    try {
+      const response = await this.httpRequest("/user/logout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      return await response.json()
+    } catch (error) {
+      console.error("Logout error:", error)
       return { success: false, error: error.message }
     }
   }

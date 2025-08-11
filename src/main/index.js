@@ -51,7 +51,6 @@ app.whenReady().then(async () => {
   slashCommandHandler.setAuthClient(authClient)
   slashCommandHandler.setUserSettings(userSettings)
 
-  queryOrchestrator.setAuthClient(authClient)
   queryOrchestrator.setAIServices(backend, toolExecutor)
   queryOrchestrator.setSlashCommandHandler(slashCommandHandler)
   // queryOrchestrator.setUpdateClient(updateClient)
@@ -71,6 +70,18 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.warn("Failed to connect to backend on startup:", error.message)
     console.log("Connection will be attempted when first query is made")
+  }
+
+  // Load stored session on startup
+  try {
+    const sessionRestored = await queryOrchestrator.loadStoredSession()
+    if (sessionRestored) {
+      console.log("User session restored successfully")
+    } else {
+      console.log("No valid session found, user will need to authenticate")
+    }
+  } catch (error) {
+    console.warn("Failed to load stored session:", error.message)
   }
 
   // Default open or close DevTools by F12 in development
