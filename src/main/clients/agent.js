@@ -1,309 +1,18 @@
 import Terminal from "./terminal.js"
 import IOClient from "./io.js"
 
-const system = `You are a desktop assistant created by Lychee to help users be more productive by operating their computer.
-
-TOOL SELECTION STRATEGY:
-Choose the appropriate tool based on the context and nature of the user's request:
-
-**START WITH SCREENSHOT when:**
-- You need to understand the current visual context before proceeding
-- User asks about something they might becurrently looking at ("how do I get to...", "where is...", "help me navigate...")
-- The query implies they're already in an application or website
-- User wants help with existing GUI interfaces
-
-**USE BASH FOR:**
-- File operations (creating, editing, moving, organizing files)
-- Opening applications or files from scratch
-- Development tasks (running code, installing packages, git operations)
-- System operations and command-line tasks
-- When you need to launch something new
-- **URL NAVIGATION: Always use bash 'open' command to navigate to URLs (e.g., 'open https://youtube.com') instead of trying to click and type in address bars**
-
-**USE GUI TOOLS (click/drag/type) FOR:**
-- Navigating within applications that are already open
-- Interacting with web interfaces, forms, buttons
-- When bash cannot control the specific interface
-- Following up after seeing current state via screenshot
-
-**FLEXIBLE WORKFLOW EXAMPLES:**
-
-Example 1 - Navigation help:
-User: "How do I get to the subscription panel?"
-→ Take screenshot first to see what they're looking at, then guide with clicks
-
-Example 2 - File task:
-User: "Organize the files on my desktop"
-→ Use bash to list/move files, screenshot to verify, bash for organization
-
-Example 3 - Development task:
-User: "Debug this React app"
-→ Use bash to run commands, screenshot to see browser, GUI if needed for browser interaction
-
-Example 4 - URL navigation:
-User: "Go to YouTube and find the latest All-In podcast"
-→ Use bash 'open https://youtube.com' to navigate, then screenshot to see the page, then GUI to search and interact
-
-Be context-aware and choose the most logical starting point based on what the user is asking for.
-
-**IMPORTANT UI LIMITATION:**
-You interact through a chat window that appears for confirmations between each action. When this window appears, it steals focus and closes any open dropdowns, context menus, or temporary UI elements. If you right-click something and see no change in the next screenshot, the dropdown likely appeared but was immediately closed when the confirmation window showed.
-
-To avoid infinite loops:
-- Prefer keyboard shortcuts over context menus (e.g., Ctrl+C instead of right-click → copy)
-- Use bash commands for file operations instead of GUI right-click menus
-- If a click shows no visible change, try an alternative approach rather than repeating the same click
-- Be aware that any temporary UI elements (dropdowns, tooltips, menus) will disappear between actions`
-
-const tools = [
-  {
-    type: "custom",
-    name: "screenshot",
-    description:
-      "Take a screenshot of the current desktop. This is useful when you want to see the user's screen in tasks that require visual information or verification.",
-    input_schema: { type: "object", properties: {} }
-  },
-  {
-    type: "custom",
-    name: "bash",
-    description: `Execute a bash command. The following are some information about the operating system so that you can use the appropriate shell commands. ${
-      process.platform === "win32"
-        ? "Operating System: win32 (Windows) | Shell: PowerShell"
-        : process.platform === "linux"
-        ? "Operating System: linux (Linux) | Shell: bash"
-        : "Operating System: darwin (macOS) | Shell: bash"
-    }`,
-    input_schema: {
-      type: "object",
-      properties: {
-        command: {
-          type: "string",
-          description:
-            "The bash command to execute in a single line, without any comments or explanations."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "terminal_interrupt",
-    description:
-      "Send an interrupt signal (Ctrl+C) to the running command in the terminal to stop it.",
-    input_schema: { type: "object", properties: {} }
-  },
-  {
-    type: "custom",
-    name: "terminal_next",
-    description:
-      "Get any new output from the terminal that has been produced since the last check, useful for monitoring long-running commands.",
-    input_schema: { type: "object", properties: {} }
-  },
-  {
-    type: "custom",
-    name: "terminal_send_interactive_input",
-    description:
-      "Send interactive input to the terminal for responding to prompts, confirmations, or navigation (e.g., arrow keys, text responses).",
-    input_schema: {
-      type: "object",
-      properties: {
-        input: {
-          type: "string",
-          description:
-            "Text input or ANSI escape codes. For arrow keys use: \\x1B[A (up), \\x1B[B (down), \\x1B[C (right), \\x1B[D (left). For Enter use \\r."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "left_click",
-    description:
-      "Perform a mouse cursor left click on the screen at the given pixel coordinates.",
-    input_schema: {
-      type: "object",
-      properties: {
-        x: {
-          type: "number",
-          description: "The x / horizontal pixel coordinate of the click."
-        },
-        y: {
-          type: "number",
-          description: "The y / vertical pixel coordinate of the click."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "right_click",
-    description:
-      "Perform a mouse cursor right click on the screen at the given pixel coordinates.",
-    input_schema: {
-      type: "object",
-      properties: {
-        x: {
-          type: "number",
-          description: "The x / horizontal pixel coordinate of the click."
-        },
-        y: {
-          type: "number",
-          description: "The y / vertical pixel coordinate of the click."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "double_click",
-    description:
-      "Perform a mouse cursor double click on the screen at the given pixel coordinates.",
-    input_schema: {
-      type: "object",
-      properties: {
-        x: {
-          type: "number",
-          description: "The x / horizontal pixel coordinate of the click."
-        },
-        y: {
-          type: "number",
-          description: "The y / vertical pixel coordinate of the click."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "drag",
-    description:
-      "Perform a mouse cursor drag from the given pixel coordinates to the given pixel coordinates.",
-    input_schema: {
-      type: "object",
-      properties: {
-        x1: {
-          type: "number",
-          description:
-            "The x / horizontal pixel coordinate of the start of the drag."
-        },
-        y1: {
-          type: "number",
-          description:
-            "The y / vertical pixel coordinate of the start of the drag."
-        },
-        x2: {
-          type: "number",
-          description:
-            "The x / horizontal pixel coordinate of the end of the drag."
-        },
-        y2: {
-          type: "number",
-          description:
-            "The y / vertical pixel coordinate of the end of the drag."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "type",
-    description:
-      "Type the given text at the given pixel coordinates. What this will do is first perform a mouse cursorleft click at the given pixel coordinates, and then type the given text.",
-    input_schema: {
-      type: "object",
-      properties: {
-        text: { type: "string", description: "The text to type." },
-        x: {
-          type: "number",
-          description: "The x / horizontal pixel coordinate of the text."
-        },
-        y: {
-          type: "number",
-          description: "The y / vertical pixel coordinate of the text."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "scroll",
-    description:
-      "Scroll within a specific area of the screen. Use x,y coordinates to target which scrollable area (since pages can have multiple scrollable regions).",
-    input_schema: {
-      type: "object",
-      properties: {
-        pixels: {
-          type: "number",
-          description:
-            "Number of pixels to scroll. Positive = down, negative = up."
-        },
-        x: {
-          type: "number",
-          description: "X coordinate within the scrollable area to target."
-        },
-        y: {
-          type: "number",
-          description: "Y coordinate within the scrollable area to target."
-        }
-      }
-    }
-  },
-  {
-    type: "custom",
-    name: "page_down",
-    description:
-      "Scroll down one page using the standard Page Down keyboard shortcut. More efficient than pixel scrolling for navigating content.",
-    input_schema: { type: "object", properties: {} }
-  },
-  {
-    type: "custom",
-    name: "page_up",
-    description:
-      "Scroll up one page using the standard Page Up keyboard shortcut. More efficient than pixel scrolling for navigating content.",
-    input_schema: { type: "object", properties: {} }
-  },
-  {
-    type: "custom",
-    name: "keyboard_hotkey",
-    description: `Execute keyboard shortcuts and key combinations. ${
-      process.platform === "darwin"
-        ? "On macOS, use 'cmd' for Command key (⌘). Common shortcuts: cmd+c (copy), cmd+v (paste), cmd+a (select all), cmd+z (undo)."
-        : "On Windows/Linux, use 'ctrl' for Control key. Common shortcuts: ctrl+c (copy), ctrl+v (paste), ctrl+a (select all), ctrl+z (undo)."
-    } You can combine multiple modifier keys like ['cmd', 'shift', 'z'] for redo.`,
-    input_schema: {
-      type: "object",
-      properties: {
-        keys: {
-          type: "array",
-          items: { type: "string" },
-          description: `Array of key names to press simultaneously. Available keys: 
-          - Modifiers: 'cmd'/'command' (${
-            process.platform === "darwin" ? "⌘" : "maps to ctrl on non-Mac"
-          }), 'ctrl'/'control', 'alt'/'option', 'shift'
-          - Letters: 'a' through 'z'
-          - Numbers: '0' through '9'  
-          - Special: 'tab', 'enter'/'return', 'space', 'backspace', 'delete', 'escape'/'esc'
-          - Arrows: 'up', 'down', 'left', 'right'
-          - Navigation: 'page_up', 'page_down', 'home', 'end'
-          - Function: 'f1' through 'f12'
-          Examples: ['cmd', 'c'] for copy, ['ctrl', 'alt', 'delete'] for task manager`
-        }
-      },
-      required: ["keys"]
-    }
-  }
-]
-
 export default class Agent {
   constructor() {
     this.ioClient = new IOClient()
 
     // Use WebSocket for backend communication
     this.backendWsUrl = "ws://localhost:8000/agent/ws"
-    
+
     this.terminal = new Terminal()
 
     // For handling confirmation responses
     this.pendingConfirmation = null
-    
+
     // WebSocket connection
     this.websocket = null
     this.connected = false
@@ -321,10 +30,12 @@ export default class Agent {
     }
 
     // Send query to backend
-    this.websocket.send(JSON.stringify({
-      type: "query",
-      content: query
-    }))
+    this.websocket.send(
+      JSON.stringify({
+        type: "query",
+        content: query
+      })
+    )
 
     // Set up message handler for this query
     return new Promise((resolve) => {
@@ -332,21 +43,21 @@ export default class Agent {
 
       this.websocket.onmessage = async (event) => {
         const response = JSON.parse(event.data)
-        
+
         switch (response.type) {
           case "text":
             pushEvent({ type: "text", content: response.content })
             break
-            
+
           case "tool_request":
             await this.handleToolRequest(response, pushEvent)
             break
-            
+
           case "complete":
             this.websocket.onmessage = originalOnMessage
             resolve({ success: true })
             break
-            
+
           case "error":
             pushEvent({ type: "text", content: response.content })
             this.websocket.onmessage = originalOnMessage
@@ -360,24 +71,24 @@ export default class Agent {
   async connectWebSocket(pushEvent) {
     return new Promise((resolve, reject) => {
       this.websocket = new WebSocket(this.backendWsUrl)
-      
+
       this.websocket.onopen = () => {
         console.log("Connected to backend WebSocket")
         this.connected = true
         resolve()
       }
-      
+
       this.websocket.onclose = () => {
         console.log("WebSocket connection closed")
         this.connected = false
       }
-      
+
       this.websocket.onerror = (error) => {
         console.error("WebSocket error:", error)
         pushEvent({ type: "text", content: "Failed to connect to backend" })
         reject(error)
       }
-      
+
       this.websocket.onmessage = (event) => {
         const message = JSON.parse(event.data)
         if (message.type === "status" && message.status === "connected") {
@@ -389,7 +100,7 @@ export default class Agent {
 
   async handleToolRequest(toolRequest, pushEvent) {
     const { tool_use_id, tool, params } = toolRequest
-    
+
     switch (tool) {
       case "bash": {
         pushEvent({ type: "bash", content: params.command })
@@ -417,22 +128,26 @@ export default class Agent {
           })
 
           // Send result back to backend
-          this.websocket.send(JSON.stringify({
-            type: "tool_result",
-            tool_use_id: tool_use_id,
-            result: JSON.stringify(execResult, null, 2)
-          }))
+          this.websocket.send(
+            JSON.stringify({
+              type: "tool_result",
+              tool_use_id: tool_use_id,
+              result: execResult
+            })
+          )
         } else {
           // User cancelled – send decline to backend
           pushEvent({ type: "text", content: "Command cancelled." })
-          this.websocket.send(JSON.stringify({
-            type: "tool_declined",
-            tool_use_id: tool_use_id
-          }))
+          this.websocket.send(
+            JSON.stringify({
+              type: "tool_declined",
+              tool_use_id: tool_use_id
+            })
+          )
         }
         break
       }
-      
+
       case "terminal_interrupt": {
         pushEvent({ type: "bash", content: "ctrl+c" })
         const confirmed = await new Promise((resolve) => {
@@ -440,21 +155,25 @@ export default class Agent {
         })
         if (confirmed) {
           await this.terminal.interrupt()
-          this.websocket.send(JSON.stringify({
-            type: "tool_result",
-            tool_use_id: tool_use_id,
-            result: "Sent Ctrl+C"
-          }))
+          this.websocket.send(
+            JSON.stringify({
+              type: "tool_result",
+              tool_use_id: tool_use_id,
+              result: "Sent Ctrl+C"
+            })
+          )
         } else {
           pushEvent({ type: "text", content: "Command cancelled." })
-          this.websocket.send(JSON.stringify({
-            type: "tool_declined",
-            tool_use_id: tool_use_id
-          }))
+          this.websocket.send(
+            JSON.stringify({
+              type: "tool_declined",
+              tool_use_id: tool_use_id
+            })
+          )
         }
         break
       }
-      
+
       case "terminal_next": {
         const output = this.terminal.getOutput()
         if (output.trim()) {
@@ -462,33 +181,39 @@ export default class Agent {
             type: "text",
             content: `\`\`\`bash\n${output.trimEnd()}\n\`\`\``
           })
-          this.websocket.send(JSON.stringify({
-            type: "tool_result",
-            tool_use_id: tool_use_id,
-            result: output.substring(0, 1000) // limit size
-          }))
+          this.websocket.send(
+            JSON.stringify({
+              type: "tool_result",
+              tool_use_id: tool_use_id,
+              result: output.substring(0, 1000) // limit size
+            })
+          )
         } else {
           pushEvent({ type: "text", content: "(no new output)" })
-          this.websocket.send(JSON.stringify({
-            type: "tool_result",
-            tool_use_id: tool_use_id,
-            result: "No new output"
-          }))
+          this.websocket.send(
+            JSON.stringify({
+              type: "tool_result",
+              tool_use_id: tool_use_id,
+              result: "No new output"
+            })
+          )
         }
         break
       }
-      
+
       case "terminal_send_interactive_input": {
         const input = params.input
         await this.terminal.sendInteractiveInput(input)
-        this.websocket.send(JSON.stringify({
-          type: "tool_result",
-          tool_use_id: tool_use_id,
-          result: `Sent input: ${input}`
-        }))
+        this.websocket.send(
+          JSON.stringify({
+            type: "tool_result",
+            tool_use_id: tool_use_id,
+            result: `Sent input: ${input}`
+          })
+        )
         break
       }
-      
+
       case "screenshot": {
         pushEvent({
           type: "text",
@@ -496,23 +221,25 @@ export default class Agent {
         })
         const screenshot = await this.ioClient.takeScreenshot()
         // Send tool_result for backend to forward to Anthropic
-        this.websocket.send(JSON.stringify({
-          type: "tool_result",
-          tool_use_id: tool_use_id,
-          result: JSON.stringify([
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/jpeg",
-                data: screenshot.base64
+        this.websocket.send(
+          JSON.stringify({
+            type: "tool_result",
+            tool_use_id: tool_use_id,
+            result: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/jpeg",
+                  data: screenshot.base64
+                }
               }
-            }
-          ])
-        }))
+            ]
+          })
+        )
         break
       }
-      
+
       case "left_click": {
         const x = params.x
         const y = params.y
@@ -533,42 +260,35 @@ export default class Agent {
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
           const resultScreenshot = await this.ioClient.takeScreenshot()
-          this.websocket.send(JSON.stringify({
-            type: "tool_result",
-            tool_use_id: tool_use_id,
-            result: JSON.stringify([
-              {
-                type: "text",
-                text: `✅ Left clicked at (${x}, ${y})`
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
-              }
-            ])
-          }))
+          this.websocket.send(
+            JSON.stringify({
+              type: "tool_result",
+              tool_use_id: tool_use_id,
+              result: `✅ Left clicked at (${x}, ${y})`
+            })
+          )
         } else {
           pushEvent({ type: "text", content: "Action cancelled." })
-          this.websocket.send(JSON.stringify({
-            type: "tool_declined",
-            tool_use_id: tool_use_id
-          }))
+          this.websocket.send(
+            JSON.stringify({
+              type: "tool_declined",
+              tool_use_id: tool_use_id
+            })
+          )
         }
         break
       }
-      
+
       // Add remaining tool handlers here...
       default:
         // For tools not yet implemented, send a generic "not implemented" result
-        this.websocket.send(JSON.stringify({
-          type: "tool_result",
-          tool_use_id: tool_use_id,
-          result: `Tool ${tool} not yet implemented in desktop client`
-        }))
+        this.websocket.send(
+          JSON.stringify({
+            type: "tool_result",
+            tool_use_id: tool_use_id,
+            result: `Tool ${tool} not yet implemented in desktop client`
+          })
+        )
         break
     }
   }
