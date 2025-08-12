@@ -129,7 +129,7 @@ class SlashCommandHandler {
         "I'm a desktop assistant that can help you operate your computer! You can tell me anything you want to do, and I'll do it for you!"
       )
       lines.push("Additional commands:")
-      lines.push("`/help` – show this message")
+      // lines.push("`/help` – show this message")
       lines.push("`/clear` – clear chat history")
       // lines.push("`/settings` – view and modify app settings")
       
