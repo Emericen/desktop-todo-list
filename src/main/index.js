@@ -1,7 +1,7 @@
 import { app, BrowserWindow, nativeImage } from "electron"
 import { electronApp, optimizer } from "@electron-toolkit/utils"
-import { autoUpdater } from "electron-updater"
-// import path from "path"
+import pkg from "electron-updater"
+const { autoUpdater } = pkg
 import {
   createChatWindow,
   showChatWindow,
