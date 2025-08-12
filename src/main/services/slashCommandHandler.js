@@ -6,6 +6,7 @@ class SlashCommandHandler {
   constructor() {
     this.authClient = null
     this.userSettings = null
+    this.queryOrchestrator = null
   }
 
   /**

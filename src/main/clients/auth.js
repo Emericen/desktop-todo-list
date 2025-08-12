@@ -29,16 +29,33 @@ export default class AuthClient {
 
         if (storedData) {
           const parsed = JSON.parse(storedData)
-          if (parsed.session && parsed.user) {
-            this.session = parsed.session
-            this.user = parsed.user
-            // Set session in supabase so it can refresh automatically
-            const { error } = await this.supabase.auth.setSession({
-              access_token: this.session.access_token,
-              refresh_token: this.session.refresh_token
-            })
-            if (error) {
-              console.error("Failed to restore session:", error)
+          if (parsed.access_token && parsed.user) {
+            // Validate token with backend
+            const response = await fetch(
+              `${this.backend.baseUrl}/user/profile`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${parsed.access_token}`,
+                  "Content-Type": "application/json"
+                }
+              }
+            )
+
+            if (response.ok) {
+              const data = await response.json()
+              if (data.success) {
+                this.session = { access_token: parsed.access_token }
+                this.user = data.user
+                console.log("Session restored successfully")
+              } else {
+                this.clearStoredSession()
+                this.reset()
+              }
+            } else {
+              console.log(
+                "Stored session expired, user needs to re-authenticate"
+              )
               this.clearStoredSession()
               this.reset()
             }
@@ -66,9 +83,9 @@ export default class AuthClient {
   /**
    * Save session data to local storage
    */
-  async saveSession(session, user) {
+  async saveSession(access_token, user) {
     try {
-      const sessionData = JSON.stringify({ session, user }, null, 2)
+      const sessionData = JSON.stringify({ access_token, user }, null, 2)
       fs.writeFileSync(this.STORAGE_FILE, sessionData, "utf8")
     } catch (err) {
       console.error("Failed to save session:", err)
@@ -92,7 +109,6 @@ export default class AuthClient {
    * Main entry; returns true if the query was consumed by the auth flow.
    */
   async handle(query, pushEvent) {
-    let email = null
     let otp = null
     switch (this.stage) {
       case "start":
@@ -104,25 +120,42 @@ export default class AuthClient {
         return true
       case "email":
         this.email = query.trim()
-        const { data, error } = await this.supabase.auth.signInWithOtp({
-          email: this.email,
-          options: { shouldCreateUser: true }
-        })
-        console.log("data", data)
-        console.log("error", error)
-        if (error) {
+        try {
+          const response = await fetch(
+            `${this.backend.baseUrl}/user/send-otp`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ email: this.email })
+            }
+          )
+
+          const data = await response.json()
+
+          if (response.ok && data.success) {
+            pushEvent({
+              type: "text",
+              content: "Please enter the 6-digit code sent to your email?"
+            })
+            this.nextStage()
+            return true
+          } else {
+            pushEvent({
+              type: "text",
+              content: `Invalid email! Please enter anything and try again.`
+            })
+            this.reset()
+            return true
+          }
+        } catch (error) {
+          console.error("Send OTP error:", error)
           pushEvent({
             type: "text",
-            content: `Invalid email! Please enter anything and try again.`
+            content: `Network error! Please try again.`
           })
           this.reset()
-          return true
-        } else {
-          pushEvent({
-            type: "text",
-            content: "Please enter the 6-digit code sent to your email?"
-          })
-          this.nextStage()
           return true
         }
       case "otp":
@@ -130,18 +163,29 @@ export default class AuthClient {
         try {
           console.log("email", this.email)
           console.log("otp", otp)
-          const { data } = await this.supabase.auth.verifyOtp({
-            email: this.email,
-            token: otp,
-            type: "email"
-          })
-          console.log("data", data)
-          if (data.user && data.session) {
+
+          const response = await fetch(
+            `${this.backend.baseUrl}/user/verify-otp`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                email: this.email,
+                otp: otp
+              })
+            }
+          )
+
+          const data = await response.json()
+
+          if (response.ok && data.success) {
             this.user = data.user
-            this.session = data.session
+            this.session = { access_token: data.access_token }
 
             // Persist session for next launch
-            await this.saveSession(this.session, this.user)
+            await this.saveSession(data.access_token, this.user)
 
             pushEvent({
               type: "text",
@@ -156,6 +200,7 @@ export default class AuthClient {
             this.reset()
           }
         } catch (error) {
+          console.error("Verify OTP error:", error)
           pushEvent({ type: "text", content: `Error: ${error.message}` })
           this.reset()
         }
@@ -189,7 +234,20 @@ export default class AuthClient {
    * Explicit logout – clears memory and stored session.
    */
   async logout() {
-    await this.supabase.auth.signOut()
+    try {
+      if (this.session && this.session.access_token) {
+        await fetch(`${this.backend.baseUrl}/user/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
+    } catch (error) {
+      console.error("Logout API call failed:", error)
+    }
+    
     this.clearStoredSession()
     this.reset()
   }

@@ -1,8 +1,6 @@
 import { showChatWindow } from "../windows/chat.js"
 import UserSettings from "./userSettings.js"
 import fs from "fs"
-import path from "path"
-import { app } from "electron"
 
 const DAILY_QUERY_LIMIT = 10
 
@@ -15,18 +13,10 @@ class QueryOrchestrator {
     this.backend = null
     this.toolExecutor = null
     this.slashCommandHandler = null
-    // this.updateClient = null
-    this.awaitingUpdateResponse = false
+    this.authClient = null
 
     // Initialize user settings for tracking daily usage
     this.userSettings = new UserSettings()
-
-    // Auth state management (moved from AuthClient)
-    this.STORAGE_FILE = path.join(app.getPath("userData"), "session.json")
-    this.authStage = "start" // start, email, otp, authenticated
-    this.email = null
-    this.session = null
-    this.user = null
   }
 
   /**
@@ -47,13 +37,13 @@ class QueryOrchestrator {
     this.slashCommandHandler = slashCommandHandler
   }
 
-  // /**
-  //  * Set the update client dependency
-  //  * @param {UpdateClient} updateClient - The update client
-  //  */
-  // setUpdateClient(updateClient) {
-  //   this.updateClient = updateClient
-  // }
+  /**
+   * Set the auth client dependency
+   * @param {AuthClient} authClient - The auth client
+   */
+  setAuthClient(authClient) {
+    this.authClient = authClient
+  }
 
   /**
    * Process a query from the frontend
@@ -87,22 +77,9 @@ class QueryOrchestrator {
         return result
       }
 
-      // Handle update response if awaiting one
-      // if (this.awaitingUpdateResponse && this.updateClient) {
-      //   const handled = await this.updateClient.handleUpdateResponse(
-      //     payload.query,
-      //     visiblePushEvent
-      //   )
-      //   if (handled) {
-      //     this.awaitingUpdateResponse = false
-      //     event.sender.send("focus-query-input")
-      //     return { success: true }
-      //   }
-      // }
-
       // Handle authentication flow
-      if (!this.isAuthenticated()) {
-        await this.handleAuth(payload.query, visiblePushEvent)
+      if (!this.authClient.isAuthenticated()) {
+        await this.authClient.handle(payload.query, visiblePushEvent)
         event.sender.send("focus-query-input")
         return { success: true }
       }

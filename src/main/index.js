@@ -1,5 +1,6 @@
 import { app, BrowserWindow, nativeImage } from "electron"
 import { electronApp, optimizer } from "@electron-toolkit/utils"
+import { autoUpdater } from "electron-updater"
 // import path from "path"
 import {
   createChatWindow,
@@ -11,7 +12,6 @@ import { registerFromSettings, unregisterAllShortcuts } from "./shortcuts.js"
 import Backend from "./clients/backend.js"
 import IOClient from "./clients/io.js"
 import AuthClient from "./clients/auth.js"
-// import UpdateClient from "./clients/update.js"
 import ToolExecutor from "./services/toolExecutor.js"
 import SlashCommandHandler from "./services/slashCommandHandler.js"
 import QueryOrchestrator from "./services/queryOrchestrator.js"
@@ -33,11 +33,10 @@ app.whenReady().then(async () => {
 
   // Initialize core services (no dependencies)
   const userSettings = new UserSettings()
-  const authClient = new AuthClient()
   const backend = new Backend() // WebSocket + HTTP to AI backend
+  const authClient = new AuthClient(backend)
   const toolExecutor = new ToolExecutor() // Tool execution service
   const ioClient = new IOClient()
-  // const updateClient = new UpdateClient() // Auto-updater with user consent
   await authClient.loadStoredSession()
 
   // Initialize business logic layer
@@ -53,12 +52,7 @@ app.whenReady().then(async () => {
 
   queryOrchestrator.setAIServices(backend, toolExecutor)
   queryOrchestrator.setSlashCommandHandler(slashCommandHandler)
-  // queryOrchestrator.setUpdateClient(updateClient)
-
-  // Set callback for update responses
-  // updateClient.setAwaitingResponseCallback((waiting) => {
-  //   queryOrchestrator.awaitingUpdateResponse = waiting
-  // })
+  queryOrchestrator.setAuthClient(authClient)
 
   ipcHandlers.setQueryOrchestrator(queryOrchestrator)
   ipcHandlers.setBackend(backend)
@@ -72,16 +66,11 @@ app.whenReady().then(async () => {
     console.log("Connection will be attempted when first query is made")
   }
 
-  // Load stored session on startup
-  try {
-    const sessionRestored = await queryOrchestrator.loadStoredSession()
-    if (sessionRestored) {
-      console.log("User session restored successfully")
-    } else {
-      console.log("No valid session found, user will need to authenticate")
-    }
-  } catch (error) {
-    console.warn("Failed to load stored session:", error.message)
+  // Session is already loaded by authClient.loadStoredSession() above
+  if (authClient.isAuthenticated()) {
+    console.log("User session restored successfully")
+  } else {
+    console.log("No valid session found, user will need to authenticate")
   }
 
   // Default open or close DevTools by F12 in development
@@ -106,8 +95,8 @@ app.whenReady().then(async () => {
   })
 
   // ========= AUTO UPDATER =========
-  // Check for updates on startup
-  // updateClient.checkForUpdates()
+  // Simple auto-updater - downloads and installs updates automatically
+  autoUpdater.checkForUpdatesAndNotify()
 
   // ========= FIRST TIME ONBOARDING =========
   await ioClient.runFirstTimeOnboarding()
