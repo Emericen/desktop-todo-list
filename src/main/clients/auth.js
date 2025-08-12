@@ -48,6 +48,9 @@ export default class AuthClient {
                 this.session = { access_token: parsed.access_token }
                 this.user = data.user
                 console.log("Session restored successfully")
+                
+                // Send user ID to backend for chat history
+                await this.sendUserIdToBackend()
               } else {
                 this.clearStoredSession()
                 this.reset()
@@ -103,6 +106,25 @@ export default class AuthClient {
 
   getUser() {
     return this.user
+  }
+
+  /**
+   * Send user ID to backend WebSocket for chat history persistence
+   */
+  async sendUserIdToBackend() {
+    try {
+      if (this.user && this.user.id && this.backend.connected) {
+        this.backend.send({
+          type: "set_user",
+          content: this.user.id
+        })
+        console.log("Sent user ID to backend:", this.user.id)
+      } else if (!this.backend.connected) {
+        console.warn("Backend not connected, cannot send user ID")
+      }
+    } catch (error) {
+      console.error("Failed to send user ID to backend:", error)
+    }
   }
 
   /**
@@ -186,6 +208,9 @@ export default class AuthClient {
 
             // Persist session for next launch
             await this.saveSession(data.access_token, this.user)
+
+            // Send user ID to backend for chat history
+            await this.sendUserIdToBackend()
 
             pushEvent({
               type: "text",
