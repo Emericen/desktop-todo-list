@@ -1,3 +1,5 @@
+import { app } from "electron"
+
 /**
  * Slash Command Handler - Handles special slash commands like /help, /logout, etc.
  * Extracted from the main IPC handler for better separation of concerns
@@ -128,6 +130,7 @@ class SlashCommandHandler {
       lines.push(
         "I'm a desktop assistant that can help you operate your computer! You can tell me anything you want to do, and I'll do it for you!"
       )
+      lines.push(`Version: ${app.getVersion()}`)
       lines.push("Additional commands:")
       // lines.push("`/help` – show this message")
       lines.push("`/clear` – clear chat history")

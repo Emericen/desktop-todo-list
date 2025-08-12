@@ -95,8 +95,13 @@ app.whenReady().then(async () => {
   })
 
   // ========= AUTO UPDATER =========
-  // Simple auto-updater - downloads and installs updates automatically
-  autoUpdater.checkForUpdatesAndNotify()
+  // Check for updates on startup
+  autoUpdater.checkForUpdates()
+
+  // Check for updates every 10 minutes
+  setInterval(() => {
+    autoUpdater.checkForUpdates()
+  }, 10 * 60 * 1000)
 
   // ========= FIRST TIME ONBOARDING =========
   await ioClient.runFirstTimeOnboarding()
