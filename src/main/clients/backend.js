@@ -1,10 +1,7 @@
 export default class Backend {
   constructor() {
-    // Environment-based URL configuration
-    this.baseUrl =
-      process.env.NODE_ENV === "production"
-        ? "https://your-app.onrender.com" // TODO: Update when deployed
-        : "http://localhost:8000"
+    this.baseUrl = "https://lychee-assistant-backend.onrender.com"
+    // this.baseUrl = "http://localhost:8000"
 
     this.wsUrl = this.baseUrl.replace(/^http/, "ws") + "/agent/ws"
 
