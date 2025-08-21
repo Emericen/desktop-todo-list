@@ -4,7 +4,7 @@ import path from "path"
 import { execFile } from "child_process"
 import { promisify } from "util"
 import sharp from "sharp"
-import { desktopCapturer } from "electron"
+import { desktopCapturer, screen } from "electron"
 import { mouse, keyboard, Key, Button } from "@nut-tree-fork/nut-js"
 import {
   setChatWindowContentProtection,
@@ -37,6 +37,17 @@ export default class IOClient {
         scaleX = this.scaleX / 2
         scaleY = this.scaleY / 2
       }
+    }
+
+    // On Windows, calculate proper scaling from 720p image to desktop resolution
+    if (process.platform === "win32") {
+      const primaryDisplay = screen.getPrimaryDisplay()
+      const screenWidth = primaryDisplay.bounds.width
+      const screenHeight = primaryDisplay.bounds.height
+      
+      // Direct scaling: desktop resolution / 720p image resolution
+      scaleX = screenWidth / 1280  // 720p is 1280x720
+      scaleY = screenHeight / 720
     }
 
     const scaled = { x: Math.round(x * scaleX), y: Math.round(y * scaleY) }

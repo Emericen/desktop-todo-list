@@ -153,7 +153,6 @@ export default class ToolExecutor {
           await this.ioClient.leftClick(x, y)
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
           wsManager.send({
             type: "tool_result",
             tool_use_id: tool_use_id,
@@ -161,14 +160,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: `✅ Left clicked at (${x}, ${y})`
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })
@@ -201,7 +192,6 @@ export default class ToolExecutor {
           await this.ioClient.rightClick(x, y)
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
           wsManager.send({
             type: "tool_result",
             tool_use_id: tool_use_id,
@@ -209,14 +199,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: `✅ Right clicked at (${x}, ${y})`
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })
@@ -249,7 +231,6 @@ export default class ToolExecutor {
           await this.ioClient.doubleClick(x, y)
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
           wsManager.send({
             type: "tool_result",
             tool_use_id: tool_use_id,
@@ -257,14 +238,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: `✅ Double clicked at (${x}, ${y})`
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })
@@ -283,11 +256,12 @@ export default class ToolExecutor {
         const y1 = params.y1
         const x2 = params.x2
         const y2 = params.y2
-        const dragAnnotation =
-          await this.ioClient.takeScreenshotWithAnnotation([
+        const dragAnnotation = await this.ioClient.takeScreenshotWithAnnotation(
+          [
             { label: "Drag", x: x1, y: y1 },
             { label: "Drop", x: x2, y: y2 }
-          ])
+          ]
+        )
         pushEvent({
           type: "image",
           content: `data:image/jpeg;base64,${dragAnnotation.base64}`
@@ -303,7 +277,6 @@ export default class ToolExecutor {
           await this.ioClient.leftClickDrag(x1, y1, x2, y2)
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
           wsManager.send({
             type: "tool_result",
             tool_use_id: tool_use_id,
@@ -311,14 +284,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: `✅ Dragged from (${x1}, ${y1}) to (${x2}, ${y2})`
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })
@@ -355,7 +320,6 @@ export default class ToolExecutor {
           await this.ioClient.scroll(pixels, x, y)
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
           wsManager.send({
             type: "tool_result",
             tool_use_id: tool_use_id,
@@ -363,14 +327,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: `✅ Scrolled ${pixels} pixels at (${x}, ${y})`
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })
@@ -388,10 +344,9 @@ export default class ToolExecutor {
         const x = params.x
         const y = params.y
         const text = params.text
-        const typeAnnotation =
-          await this.ioClient.takeScreenshotWithAnnotation([
-            { label: "Type", x: x, y: y }
-          ])
+        const typeAnnotation = await this.ioClient.takeScreenshotWithAnnotation(
+          [{ label: "Type", x: x, y: y }]
+        )
         pushEvent({
           type: "image",
           content: `data:image/jpeg;base64,${typeAnnotation.base64}`
@@ -405,11 +360,6 @@ export default class ToolExecutor {
           await this.ioClient.typeText(x, y, text)
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
-          pushEvent({
-            type: "image",
-            content: `data:image/jpeg;base64,${resultScreenshot.base64}`
-          })
 
           // Record success with screenshot
           wsManager.send({
@@ -419,14 +369,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: `✅ Typed "${text}" at (${x}, ${y})`
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })
@@ -453,7 +395,6 @@ export default class ToolExecutor {
           await this.ioClient.keyboardHotkey(keys)
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
           wsManager.send({
             type: "tool_result",
             tool_use_id: tool_use_id,
@@ -461,14 +402,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: `✅ Executed hotkey: ${keys.join(" + ")}`
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })
@@ -494,7 +427,6 @@ export default class ToolExecutor {
           await this.ioClient.keyboardHotkey(["page_down"])
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
           wsManager.send({
             type: "tool_result",
             tool_use_id: tool_use_id,
@@ -502,14 +434,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: "✅ Page Down executed"
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })
@@ -535,7 +459,6 @@ export default class ToolExecutor {
           await this.ioClient.keyboardHotkey(["page_up"])
           // Wait briefly then take screenshot to show result
           await new Promise((resolve) => setTimeout(resolve, 100))
-          const resultScreenshot = await this.ioClient.takeScreenshot()
           wsManager.send({
             type: "tool_result",
             tool_use_id: tool_use_id,
@@ -543,14 +466,6 @@ export default class ToolExecutor {
               {
                 type: "text",
                 text: "✅ Page Up executed"
-              },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: resultScreenshot.base64
-                }
               }
             ]
           })

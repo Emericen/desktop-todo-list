@@ -1,7 +1,7 @@
 export default class Backend {
   constructor() {
-    this.baseUrl = "https://lychee-assistant-backend.onrender.com"
-    // this.baseUrl = "http://localhost:8000"
+    // this.baseUrl = "https://lychee-assistant-backend.onrender.com"
+    this.baseUrl = "http://localhost:8000"
 
     this.wsUrl = this.baseUrl.replace(/^http/, "ws") + "/agent/ws"
 

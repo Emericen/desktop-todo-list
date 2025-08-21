@@ -61,16 +61,17 @@ app.whenReady().then(async () => {
   try {
     await backend.connect()
     console.log("Backend WebSocket connected successfully")
+    
+    // Now that backend is connected, send user ID if authenticated
+    if (authClient.isAuthenticated()) {
+      await authClient.sendUserIdToBackend()
+      console.log("User session restored successfully")
+    } else {
+      console.log("No valid session found, user will need to authenticate")
+    }
   } catch (error) {
     console.warn("Failed to connect to backend on startup:", error.message)
     console.log("Connection will be attempted when first query is made")
-  }
-
-  // Session is already loaded by authClient.loadStoredSession() above
-  if (authClient.isAuthenticated()) {
-    console.log("User session restored successfully")
-  } else {
-    console.log("No valid session found, user will need to authenticate")
   }
 
   // Default open or close DevTools by F12 in development

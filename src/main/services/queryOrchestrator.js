@@ -85,27 +85,27 @@ class QueryOrchestrator {
       }
 
       // Daily query limit check
-      {
-        const today = new Date().toISOString().split("T")[0]
-        let usage = this.userSettings.get("usage") || {}
-        if (usage.date !== today) {
-          usage = { date: today, count: 0 }
-        }
-        if (usage.count >= DAILY_QUERY_LIMIT) {
-          visiblePushEvent({
-            type: "text",
-            content: `Daily limit of ${DAILY_QUERY_LIMIT} queries reached. Please try again tomorrow.\n\nNeed more? Ping Eddy Liang on [Discord](https://discord.gg/sBNnqP9gaY) to discuss a premium plan.`
-          })
-          event.sender.send("focus-query-input")
-          return { success: false, error: "Daily limit reached" }
-        }
-        usage.count = (usage.count || 0) + 1
-        const remaining = DAILY_QUERY_LIMIT - usage.count
-        console.log(
-          `Query used: ${usage.count}/${DAILY_QUERY_LIMIT} (${remaining} left today)`
-        )
-        this.userSettings.set("usage", usage)
-      }
+      // {
+      //   const today = new Date().toISOString().split("T")[0]
+      //   let usage = this.userSettings.get("usage") || {}
+      //   if (usage.date !== today) {
+      //     usage = { date: today, count: 0 }
+      //   }
+      //   if (usage.count >= DAILY_QUERY_LIMIT) {
+      //     visiblePushEvent({
+      //       type: "text",
+      //       content: `Daily limit of ${DAILY_QUERY_LIMIT} queries reached. Please try again tomorrow.\n\nNeed more? Ping Eddy Liang on [Discord](https://discord.gg/sBNnqP9gaY) to discuss a premium plan.`
+      //     })
+      //     event.sender.send("focus-query-input")
+      //     return { success: false, error: "Daily limit reached" }
+      //   }
+      //   usage.count = (usage.count || 0) + 1
+      //   const remaining = DAILY_QUERY_LIMIT - usage.count
+      //   console.log(
+      //     `Query used: ${usage.count}/${DAILY_QUERY_LIMIT} (${remaining} left today)`
+      //   )
+      //   this.userSettings.set("usage", usage)
+      // }
 
       // Process query with AI services
       const result = await this._processAIQuery(payload.query, visiblePushEvent)
