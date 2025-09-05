@@ -79,3 +79,7 @@ dist/
 documents/
 
 experiments/
+
+# Claude Code files
+.claude/
+CLAUDE.md

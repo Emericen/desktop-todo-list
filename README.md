@@ -1,58 +1,37 @@
-# Lychee Desktop Assistant
+# Desktop Todo App
 
-An AI-powered desktop assistant that lives on top of your screen, sees what you see, and can take action on your behalf with mouse, keyboard, and terminal access.
+A simple, always-on-top desktop todo list built with Electron.
 
-## Quick Start
+## Features
 
-### Prerequisites
+- **Always visible**: Stays on top of all windows
+- **System tray**: Minimize to tray, never fully closes
+- **Auto-save**: Your todos are saved automatically
+- **Zoomable**: Adjust font size for comfort
+- **Dark/Light theme**: Follows system preference
 
-- Node.js (v16 or higher)
-- An Anthropic API key
+## Usage
 
-### Install
+### Keyboard Shortcuts
 
-```bash
-# Install dependencies
-npm install
-```
+- `Alt + P` - Show/hide window
+- `Ctrl + Mouse Wheel` - Zoom in/out
+- `Ctrl + =` - Zoom in
+- `Ctrl + 0` - Reset zoom
+- `Tab` - Add indentation
 
-### Setup
+### Installation
 
-1. Create a `.env` file in the root directory
-2. Add your Anthropic API key:
-```
-ANTHROPIC_API_KEY=your_api_key_here
-```
-
-### Development
-
-```bash
-npm run dev
-```
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Run the app: `npm run dev`
 
 ### Build
 
-```bash
-# For Windows
-npm run build:win
+- `npm run build` - Build for current platform
+- `npm run build:win` - Build for Windows
+- `npm run build:mac` - Build for macOS
 
-# For macOS
-npm run build:mac
+## Data Storage
 
-# For Linux
-npm run build:linux
-```
-
-## Current Limitations
-
-- Does not work well on large monitors. Thus no windows / PC support yet.
-- Typing is tricky since it clicks first.
-  - When assistant `command + a` then type, it deselects and overlap the texts.
-  - Assistant also have tendency to left click select text box first then type, whereas technically it could just type since it clicks already. Former is how human do things, so goes to say training data.
-
-## Architecture
-
-- **Frontend**: React + Electron renderer with shadcn/ui components
-- **Backend**: Electron main process with Anthropic Claude integration
-- **AI Tools**: Screenshot capture, mouse/keyboard control, terminal execution
-- **Voice**: OpenAI Whisper for speech-to-text transcription
+Your todos are automatically saved to your system's user data directory as a plain text file.
